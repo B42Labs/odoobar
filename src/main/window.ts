@@ -27,6 +27,8 @@ export interface WindowUi {
   /** Brings the window to the front. The first call creates it. */
   showWindow(): void;
   hideWindow(): void;
+  /** Deletes what the pages of all views stored: cookies, page storage, and caches. */
+  clearProfile(): Promise<void>;
 }
 
 /** What the window asks of the system. */
@@ -49,8 +51,8 @@ function appsOf(config: Config): App[] {
  * Decides what the window shows: which app is active, which views exist, and
  * what the app bar says. A view is created when its app is first shown in a
  * visible window and lives until OdooBar quits, the configuration drops or
- * changes its app, or its page closes itself. A closed view of the active app
- * opens again at the start address.
+ * changes its app, a sign-out clears the profile, or its page closes itself.
+ * A closed view of the active app opens again at the start address.
  */
 export class WindowController {
   private baseUrl: string;
@@ -59,6 +61,7 @@ export class WindowController {
   private visible = false;
   private readonly open = new Set<string>();
   private readonly failures = new Map<string, { readonly url: string; readonly reason: string }>();
+  private signingOut: Promise<void> | undefined;
 
   constructor(
     private readonly ui: WindowUi,
@@ -172,6 +175,29 @@ export class WindowController {
   }
 
   /**
+   * Deletes the login with everything else the pages stored. Every view
+   * closes first, so no page writes while the profile is cleared, and no view
+   * opens until that is done. The active app then opens again, on the Odoo
+   * login page. A call during a sign-out joins it. Rejects with the error of
+   * clearProfile. The settings window will call it. Until that window exists,
+   * only the smoke tests do.
+   */
+  signOut(): Promise<void> {
+    if (this.signingOut) return this.signingOut;
+    for (const id of this.open) this.ui.closeView(id);
+    this.open.clear();
+    this.failures.clear();
+    // The async function turns an error that clearProfile throws into a rejection.
+    const signingOut = (async () => this.ui.clearProfile())().finally(() => {
+      this.signingOut = undefined;
+      this.present();
+    });
+    this.signingOut = signingOut;
+    this.present();
+    return signingOut;
+  }
+
+  /**
    * Takes over a saved configuration. A view survives when its app is still
    * listed with the same address. The active app stays active when it is
    * still listed, otherwise the first app is.
@@ -210,15 +236,15 @@ export class WindowController {
     };
   }
 
-  /** Brings the screen in line with the state. A hidden window gets no view. */
+  /** Brings the screen in line with the state. A hidden window gets no view, and neither does a sign-out in progress. */
   private present(): void {
     const app = this.apps.find((candidate) => candidate.id === this.active);
     if (this.visible) {
-      if (app && !this.open.has(app.id)) {
+      if (app && !this.open.has(app.id) && !this.signingOut) {
         this.ui.openView(app.id, app.url);
         this.open.add(app.id);
       }
-      this.ui.showView(app && !this.failures.has(app.id) ? app.id : undefined);
+      this.ui.showView(app && this.open.has(app.id) && !this.failures.has(app.id) ? app.id : undefined);
     }
     this.ui.renderBar(this.barState());
   }
