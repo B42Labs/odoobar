@@ -1,6 +1,8 @@
 import { app } from 'electron';
 import { join } from 'node:path';
 import { ConfigStore } from './config-store';
+import { GlobalShortcuts } from './global-shortcuts';
+import { createGlobalShortcutsUi } from './global-shortcuts-ui';
 import { startApp } from './lifecycle';
 import { syncLoginItem } from './login-item';
 import { MenuBar } from './menu-bar';
@@ -30,9 +32,11 @@ async function start(): Promise<void> {
     result.config,
   );
   const menuBar = new MenuBar(createMenuBarUi(controller, messages), result.config);
+  const shortcuts = new GlobalShortcuts(createGlobalShortcutsUi(), (id) => controller.toggleApp(id), result.config);
   store.onChange((config) => {
     controller.setConfig(config);
     menuBar.setConfig(config);
+    shortcuts.setConfig(config);
   });
   // Starting OdooBar again is the way to the window: a process started
   // directly ends on the single-instance lock, and Finder reopens this one.
