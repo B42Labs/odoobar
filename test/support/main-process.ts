@@ -146,6 +146,79 @@ export async function saveConfig(main: Page, config: object): Promise<void> {
 }
 
 /**
+ * Keeps the callback of every global shortcut that Electron registers from
+ * now on, and the GlobalShortcuts that takes a configuration next, so a test
+ * can press a shortcut without the keyboard and read the states the settings
+ * window will show. Call it before the first-start prompt saves.
+ */
+export async function recordShortcuts(main: Page): Promise<void> {
+  await evaluate(
+    main,
+    `(() => {
+      const { globalShortcut } = ${electron};
+      globalThis.shortcutPresses = new Map();
+      globalThis.refusedShortcuts = new Set();
+      const register = globalShortcut.register;
+      globalShortcut.register = function (accelerator, press) {
+        if (globalThis.refusedShortcuts.has(accelerator)) return false;
+        const registered = register.call(this, accelerator, press);
+        if (registered) globalThis.shortcutPresses.set(accelerator, press);
+        return registered;
+      };
+      const unregisterAll = globalShortcut.unregisterAll;
+      globalShortcut.unregisterAll = function () {
+        globalThis.shortcutPresses.clear();
+        return unregisterAll.call(this);
+      };
+      const { GlobalShortcuts } = ${mainModule('global-shortcuts.js')};
+      const setConfig = GlobalShortcuts.prototype.setConfig;
+      GlobalShortcuts.prototype.setConfig = function (config) {
+        globalThis.shortcuts = this;
+        return setConfig.call(this, config);
+      };
+      return true;
+    })()`,
+  );
+}
+
+/**
+ * Makes Electron refuse this global shortcut from now on, as it does one that
+ * the system does not grant. Call it after recordShortcuts.
+ */
+export async function refuseShortcut(main: Page, accelerator: string): Promise<void> {
+  await evaluate(main, `globalThis.refusedShortcuts.add(${JSON.stringify(accelerator)}); true`);
+}
+
+/** Presses a global shortcut the way macOS reports a press. Rejects for a shortcut that OdooBar does not hold in this spelling. */
+export async function pressShortcut(main: Page, accelerator: string): Promise<void> {
+  await evaluate(main, `globalThis.shortcutPresses.get(${JSON.stringify(accelerator)})(); true`);
+}
+
+export interface ShortcutState {
+  readonly id: string;
+  readonly shortcut: string;
+  readonly status: string;
+}
+
+/** What GlobalShortcuts tells the settings window about each app with a shortcut. */
+export async function shortcutStates(main: Page): Promise<ShortcutState[]> {
+  return (await evaluate(main, 'globalThis.shortcuts.states()')) as ShortcutState[];
+}
+
+/** Whether OdooBar holds this global shortcut, in any spelling, once the app is ready. */
+export async function holdsShortcut(main: Page, accelerator: string): Promise<boolean> {
+  return (await evaluate(
+    main,
+    `${electron}.app.whenReady().then(() => ${electron}.globalShortcut.isRegistered(${JSON.stringify(accelerator)}))`,
+  )) as boolean;
+}
+
+/** How many windows OdooBar has, hidden ones included. */
+export async function windowCount(main: Page): Promise<number> {
+  return (await evaluate(main, `${electron}.BrowserWindow.getAllWindows().length`)) as number;
+}
+
+/**
  * Keeps every menu bar icon that gets its tooltip from now on: menu-bar-ui.ts
  * sets exactly one on each Tray, and the Tray export of electron cannot be
  * replaced. It also keeps the menu of an icon instead of opening it, since an
