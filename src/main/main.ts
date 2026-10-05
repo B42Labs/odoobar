@@ -6,6 +6,8 @@ import { syncLoginItem } from './login-item';
 import { messagesFor, pickLocale } from './messages';
 import { loadOrCreateConfig } from './startup';
 import { createStartupUi } from './startup-ui';
+import { WindowController } from './window';
+import { createDesktop, createWindowUi } from './window-ui';
 
 async function start(): Promise<void> {
   await app.whenReady();
@@ -18,6 +20,20 @@ async function start(): Promise<void> {
     return;
   }
   syncLoginItem(app, result.config.launchAtLogin);
+
+  const controller: WindowController = new WindowController(
+    createWindowUi(() => controller),
+    createDesktop(store.filePath),
+    messages,
+    result.config,
+  );
+  store.onChange((config) => controller.setConfig(config));
+  // Starting OdooBar again is the way to the window: a process started
+  // directly ends on the single-instance lock, and Finder reopens this one.
+  app.on('second-instance', () => controller.show());
+  app.on('activate', () => controller.show());
+  // A first start goes on to the Odoo login page. Every later start stays hidden.
+  if (result.created) controller.show();
 }
 
 if (startApp(app)) {

@@ -134,7 +134,7 @@ export class WindowController {
     }
   }
 
-  /** A link in the view of `id` asked for a new window or tab. */
+  /** A link in the view of `id` asked for a new window or tab, or for an address that is not http(s). */
   openLink(id: string, url: string): void {
     switch (linkTarget(this.baseUrl, url)) {
       case 'view':
