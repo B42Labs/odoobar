@@ -1,0 +1,25 @@
+{
+  "name": "odoobar",
+  "productName": "OdooBar",
+  "version": "0.1.0",
+  "description": "Odoo apps in the macOS menu bar",
+  "private": true,
+  "main": "out/src/main/main.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "build": "rm -rf out && tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "npm run build && electron .",
+    "test": "npm run build && node --test \"out/test/unit/*.test.js\" \"out/test/smoke/*.test.js\"",
+    "dist": "npm run build && electron-builder --mac",
+    "test:dist": "npm run build && node --test \"out/test/dist/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "electron": "44.5.1",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2"
+  }
+}
