@@ -15,6 +15,12 @@ export interface Messages {
   readonly invalidConfig: { readonly message: string; readonly detail: string; readonly reset: string };
   readonly unreadableConfig: string;
   readonly resetFailed: string;
+  readonly appBar: {
+    readonly settings: string;
+    readonly retry: string;
+    readonly noApps: string;
+    readonly loadFailed: string;
+  };
 }
 
 const en: Messages = {
@@ -49,6 +55,12 @@ const en: Messages = {
   },
   unreadableConfig: 'OdooBar cannot read its configuration',
   resetFailed: 'OdooBar could not rename the configuration file',
+  appBar: {
+    settings: 'Settings',
+    retry: 'Try again',
+    noApps: 'No apps are configured.',
+    loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
+  },
 };
 
 const de: Messages = {
@@ -84,6 +96,12 @@ const de: Messages = {
   },
   unreadableConfig: 'OdooBar kann seine Konfiguration nicht lesen',
   resetFailed: 'OdooBar konnte die Konfigurationsdatei nicht umbenennen',
+  appBar: {
+    settings: 'Einstellungen',
+    retry: 'Erneut versuchen',
+    noApps: 'Es sind keine Apps eingerichtet.',
+    loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
+  },
 };
 
 /** German for a German language tag such as de-AT, English for every other tag. */
