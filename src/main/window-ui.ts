@@ -203,6 +203,9 @@ export function createWindowUi(events: () => WindowController): WindowUi {
       // Hands the keyboard back to the app that was in front before OdooBar.
       app.hide();
     },
+    clearProfile() {
+      return odoo.clearData();
+    },
   };
 }
 

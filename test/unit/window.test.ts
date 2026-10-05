@@ -18,11 +18,13 @@ const two: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss] };
 /**
  * A WindowController on a screen and a system that record every call but
  * renderBar as text. `take` returns the calls since the last `take`, and
- * `bar` the last state that the app bar got.
+ * `bar` the last state that the app bar got. clearProfile resolves at once
+ * unless `clearWith` replaces it.
  */
 function fakeWindow(config: Config, messages: Messages = en) {
   let calls: string[] = [];
   let state: BarState | undefined;
+  let clear = (): Promise<void> => Promise.resolve();
   const ui: WindowUi = {
     openView: (id, url) => calls.push(`openView ${id} ${url}`),
     closeView: (id) => calls.push(`closeView ${id}`),
@@ -34,6 +36,10 @@ function fakeWindow(config: Config, messages: Messages = en) {
     },
     showWindow: () => calls.push('showWindow'),
     hideWindow: () => calls.push('hideWindow'),
+    clearProfile: () => {
+      calls.push('clearProfile');
+      return clear();
+    },
   };
   const desktop: Desktop = {
     openExternal: (url) => calls.push(`openExternal ${url}`),
@@ -45,7 +51,10 @@ function fakeWindow(config: Config, messages: Messages = en) {
     calls = [];
     return taken;
   };
-  return { controller, take, bar: () => state };
+  const clearWith = (next: () => Promise<void>) => {
+    clear = next;
+  };
+  return { controller, take, bar: () => state, clearWith };
 }
 
 /** A fakeWindow whose window is shown, with the calls of show() taken. */
@@ -324,4 +333,95 @@ test('setConfig in a hidden window draws the bar and loads nothing', () => {
   controller.setConfig({ ...two, apps: [discuss] });
   assert.deepEqual(take(), []);
   assert.deepEqual(bar()?.apps, [{ id: 'discuss', name: 'Discuss' }]);
+});
+
+/** What a sign-out calls while the window shows CRM as its only view. */
+const crmSignOut = ['closeView crm', 'clearProfile', 'showView undefined', `openView crm ${B}/odoo/crm`, 'showView crm'];
+
+test('signOut closes every view, clears the profile, and opens the active app again', async () => {
+  const { controller, take } = shownWindow(two);
+  controller.selectApp('discuss');
+  take();
+  const done = controller.signOut();
+  assert.deepEqual(take(), ['closeView crm', 'closeView discuss', 'clearProfile', 'showView undefined']);
+  await done;
+  assert.deepEqual(take(), [`openView discuss ${B}/odoo/discuss`, 'showView discuss']);
+  controller.selectApp('crm');
+  assert.deepEqual(take(), [`openView crm ${B}/odoo/crm`, 'showView crm']);
+});
+
+test('signOut opens no view until the profile is cleared', async () => {
+  const { controller, take, bar, clearWith } = shownWindow(two);
+  let finish = () => {};
+  clearWith(() => new Promise((resolve) => (finish = resolve)));
+  const done = controller.signOut();
+  take();
+  controller.selectApp('discuss');
+  controller.pressApp('discuss');
+  controller.reloadActive();
+  controller.setConfig({ ...two, apps: [discuss, crm] });
+  assert.deepEqual(take(), ['showView undefined', 'showView undefined', 'showView undefined']);
+  assert.equal(bar()?.activeId, 'discuss');
+  assert.equal(bar()?.notice, undefined);
+  finish();
+  await done;
+  assert.deepEqual(take(), [`openView discuss ${B}/odoo/discuss`, 'showView discuss']);
+});
+
+test('signOut during a sign-out joins it, and a later one clears again', async () => {
+  const { controller, take } = shownWindow(two);
+  const first = controller.signOut();
+  assert.equal(controller.signOut(), first);
+  await first;
+  assert.deepEqual(take(), crmSignOut);
+  await controller.signOut();
+  assert.deepEqual(take(), crmSignOut);
+});
+
+test('signOut in a hidden window closes the views and opens none', async () => {
+  const { controller, take } = shownWindow(two);
+  controller.hide();
+  take();
+  await controller.signOut();
+  assert.deepEqual(take(), ['closeView crm', 'clearProfile']);
+  controller.show();
+  assert.deepEqual(take(), ['showWindow', `openView crm ${B}/odoo/crm`, 'showView crm']);
+});
+
+test('signOut clears the profile without a view and without an app', async () => {
+  const hidden = fakeWindow(two);
+  await hidden.controller.signOut();
+  assert.deepEqual(hidden.take(), ['clearProfile']);
+
+  const empty = shownWindow({ ...two, apps: [] });
+  await empty.controller.signOut();
+  assert.deepEqual(empty.take(), ['clearProfile', 'showView undefined', 'showView undefined']);
+  assert.deepEqual(empty.bar()?.notice, { text: 'No apps are configured.', retry: false });
+});
+
+test('signOut drops the notice of a page that did not load', async () => {
+  const { controller, take, bar } = shownWindow(two);
+  controller.loadFailed('crm', `${B}/odoo/crm`, 'ERR_CONNECTION_REFUSED');
+  take();
+  await controller.signOut();
+  assert.deepEqual(take(), crmSignOut);
+  assert.equal(bar()?.notice, undefined);
+});
+
+test('signOut rejects with the error of clearProfile and opens the active app again', async () => {
+  const failure = new Error('clearing failed');
+  const rejecting = shownWindow(two);
+  rejecting.clearWith(() => Promise.reject(failure));
+  await assert.rejects(rejecting.controller.signOut(), failure);
+  assert.deepEqual(rejecting.take(), crmSignOut);
+
+  const throwing = shownWindow(two);
+  throwing.clearWith(() => {
+    throw failure;
+  });
+  await assert.rejects(throwing.controller.signOut(), failure);
+  throwing.take();
+  throwing.clearWith(() => Promise.resolve());
+  await throwing.controller.signOut();
+  assert.deepEqual(throwing.take(), crmSignOut);
 });
