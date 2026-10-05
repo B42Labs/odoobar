@@ -27,6 +27,8 @@ export interface WindowUi {
   /** Brings the window to the front. The first call creates it. */
   showWindow(): void;
   hideWindow(): void;
+  /** Whether the window is the one that takes the keys right now. False for a hidden window and before the first showWindow. */
+  isWindowFocused(): boolean;
   /** Deletes what the pages of all views stored: cookies, page storage, and caches. */
   clearProfile(): Promise<void>;
 }
@@ -96,6 +98,19 @@ export class WindowController {
     this.present();
   }
 
+  /**
+   * A click on the menu bar icon of an app. It hides the window when this app
+   * is in front: active in a window that takes the keys. Otherwise it makes
+   * the app the active one and brings the window to the front. An unknown id
+   * changes nothing.
+   */
+  toggleApp(id: string): void {
+    if (!this.apps.some((app) => app.id === id)) return;
+    if (this.visible && id === this.active && this.ui.isWindowFocused()) return this.hide();
+    this.active = id;
+    this.show();
+  }
+
   /** A click in the app bar. On the active app it loads the start address again, which is the way back from any page. */
   pressApp(id: string): void {
     if (id !== this.active) return this.selectApp(id);
@@ -106,15 +121,24 @@ export class WindowController {
     this.present();
   }
 
-  /** Reloads the page of the active app, or loads the address again that failed. */
-  reloadActive(): void {
-    const id = this.active;
-    if (id === undefined || !this.open.has(id)) return;
+  /** Whether an app has a view, and so a page that reloadApp reloads. */
+  canReload(id: string): boolean {
+    return this.open.has(id);
+  }
+
+  /** Reloads the page of an app, or loads the address again that failed. An app without a view stays as it is. */
+  reloadApp(id: string): void {
+    if (!this.canReload(id)) return;
     const failure = this.failures.get(id);
     if (!failure) return this.ui.reloadView(id);
     this.failures.delete(id);
     this.ui.loadView(id, failure.url);
     this.present();
+  }
+
+  /** Reloads the active app as reloadApp does. */
+  reloadActive(): void {
+    if (this.active !== undefined) this.reloadApp(this.active);
   }
 
   openSettings(): void {
