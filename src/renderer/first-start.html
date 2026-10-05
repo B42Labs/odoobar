@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'" />
+    <title>OdooBar</title>
+    <style>
+      :root { color-scheme: light dark; font: 13px system-ui; }
+      body { margin: 24px; }
+      h1 { font-size: 17px; margin: 0 0 16px; }
+      label { display: block; margin-bottom: 6px; }
+      input { box-sizing: border-box; width: 100%; font: inherit; padding: 6px 8px; }
+      #hint { color: GrayText; margin: 6px 0 0; }
+      #error { color: #d70015; min-height: 32px; margin: 8px 0; }
+      .buttons { display: flex; justify-content: flex-end; gap: 8px; }
+      button { font: inherit; padding: 4px 14px; }
+    </style>
+  </head>
+  <body hidden>
+    <h1 id="title"></h1>
+    <form id="form">
+      <label id="label" for="base-url"></label>
+      <input id="base-url" type="text" autocomplete="off" spellcheck="false" />
+      <p id="hint"></p>
+      <p id="error" role="alert"></p>
+      <div class="buttons">
+        <button id="quit" type="button"></button>
+        <button id="save" type="submit"></button>
+      </div>
+    </form>
+  </body>
+</html>

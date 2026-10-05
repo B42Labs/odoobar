@@ -11,7 +11,9 @@ import {
   projectRoot,
   removeUserDataDir,
   stop,
+  storedConfig,
   waitForExit,
+  writeConfig,
 } from '../support/app-process';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
@@ -71,6 +73,7 @@ test('ad-hoc signature is valid', () => {
 
 test('built app runs without a Dock icon', { timeout: 60_000 }, async () => {
   const userDataDir = makeUserDataDir();
+  writeConfig(userDataDir, storedConfig);
   const app = launch(executable, [], userDataDir);
   try {
     await expectRunningAgentApp(app);
