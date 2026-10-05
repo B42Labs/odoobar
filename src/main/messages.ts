@@ -21,6 +21,7 @@ export interface Messages {
     readonly noApps: string;
     readonly loadFailed: string;
   };
+  readonly menuBar: { readonly reload: string; readonly settings: string };
 }
 
 const en: Messages = {
@@ -61,6 +62,7 @@ const en: Messages = {
     noApps: 'No apps are configured.',
     loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
   },
+  menuBar: { reload: 'Reload', settings: 'Settings…' },
 };
 
 const de: Messages = {
@@ -102,6 +104,7 @@ const de: Messages = {
     noApps: 'Es sind keine Apps eingerichtet.',
     loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
   },
+  menuBar: { reload: 'Neu laden', settings: 'Einstellungen …' },
 };
 
 /** German for a German language tag such as de-AT, English for every other tag. */
