@@ -60,9 +60,11 @@ Nach dem ersten Start öffnet sich das Fenster von selbst. Bei jedem späteren S
 | `⌘,` | Einstellungen öffnen |
 | `⌘W` | Fenster ausblenden, OdooBar läuft in der Menüleiste weiter |
 
-Ist ein globales Kürzel bereits von einem anderen Programm belegt, zeigen die Einstellungen einen Hinweis an.
+Ein globales Kürzel gilt, solange OdooBar läuft, auch bei verborgenem Fenster. Liegt das Fenster hinter einem anderen Programm, holt das Kürzel es nach vorn. Ein Kürzel ohne Modifikator, etwa `D`, nimmt diese Taste allen anderen Programmen weg.
 
-Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,`, das Zahnrad in der App-Leiste und „Einstellungen …“ im Menü eines Symbols die Datei `config.json` im Finder.
+macOS teilt einer App nicht mit, ob ein anderes Programm oder macOS selbst ein Kürzel schon verwendet. Reagiert ein Kürzel nicht wie erwartet, ist es vermutlich anderweitig belegt, und ein anderes Kürzel hilft. Zwei Fehler erkennt OdooBar selbst: einen Text, der kein gültiges Kürzel ist, und ein Kürzel, das zwei Apps von OdooBar haben. Ein ungültiges Kürzel bleibt ohne Wirkung, ein doppeltes gilt für die erste der beiden Apps in der Konfiguration. Die Einstellungen zeigen in beiden Fällen einen Hinweis an.
+
+Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,`, das Zahnrad in der App-Leiste und „Einstellungen …“ im Menü eines Symbols die Datei `config.json` im Finder, und den Hinweis zu einem Kürzel zeigt noch nichts an.
 
 ### Anmeldung
 
@@ -133,14 +135,14 @@ Beispiel:
 | `name` | Anzeigename in der App-Leiste und als Tooltip in der Menüleiste |
 | `url` | Startadresse der App. Ein Pfad wie `/odoo/crm` wird an `baseUrl` angehängt, eine vollständige URL wird unverändert verwendet |
 | `icon` | Name eines [Lucide](https://lucide.dev/icons/)-Symbols für die Menüleiste, etwa `house` oder `message-circle`. Ein leerer oder unbekannter Name zeigt das Ersatzsymbol `app-window` |
-| `shortcut` | Globales Tastenkürzel im [Electron-Accelerator-Format](https://www.electronjs.org/docs/latest/api/accelerator), leer für kein Kürzel |
+| `shortcut` | Globales Tastenkürzel im [Electron-Accelerator-Format](https://www.electronjs.org/docs/latest/api/accelerator): beliebig viele Modifikatoren wie `Command`, `Control`, `Alt` und `Shift`, dann genau eine Taste, verbunden mit `+`, etwa `Control+Alt+D`. `AltGr` gibt es auf dem Mac nicht, ein Kürzel damit ist ungültig. Leer für kein Kürzel |
 | `menuBar` | `true` zeigt die App als Symbol in der Menüleiste. Bei `false` ist sie nur über App-Leiste und Kürzel erreichbar |
 
 ### Erster Start und fehlerhafte Datei
 
 Beim ersten Start fragt OdooBar nach der Odoo-URL und legt die Datei mit zwei Apps an: „Home“ (`/odoo`) und „Zeiterfassung“ (`/odoo/timesheets`), beide mit Symbol in der Menüleiste und ohne Tastenkürzel. Wer die Abfrage schließt, beendet OdooBar, und der nächste Start fragt erneut.
 
-Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. Fehlt `apps`, ist die Liste leer. Fehlt `icon` oder `shortcut`, gilt der leere Text. Jede App braucht `id`, `name` und `url`, und jede `id` darf nur einmal vorkommen.
+Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. Fehlt `apps`, ist die Liste leer. Fehlt `icon` oder `shortcut`, gilt der leere Text. Jede App braucht `id`, `name` und `url`, und jede `id` darf nur einmal vorkommen. Ein `shortcut`, der kein gültiges Kürzel ist, macht die Datei nicht ungültig, die App hat dann nur kein Kürzel.
 
 `launchAtLogin` und `menuBar` sind `true` oder `false`, `apps` ist eine Liste, alle anderen Felder sind Texte. `id` und `name` dürfen nicht leer sein. `baseUrl` verwendet `http://` oder `https://` und enthält weder Benutzername noch Passwort, `?` oder `#`. Die `url` einer App ist ein Pfad, der mit `/` beginnt, oder eine vollständige Adresse mit `http://` oder `https://`.
 
