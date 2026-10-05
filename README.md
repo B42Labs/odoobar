@@ -66,9 +66,11 @@ Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,` und das Zahnra
 
 Beim ersten Start fragt OdooBar nach der Odoo-URL und zeigt danach die normale Odoo-Anmeldeseite. Zwei-Faktor-Anmeldung und Single Sign-on funktionieren deshalb wie im Browser.
 
-OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eigenen Chromium-Profil der App. Läuft die Sitzung serverseitig ab, erscheint im Fenster wieder die Anmeldeseite. Nach dem Login gilt die Sitzung sofort für alle Apps.
+OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eigenen Chromium-Profil der App, im Ordner `Partitions/odoo` neben `config.json`. Läuft die Sitzung serverseitig ab, erscheint im Fenster wieder die Anmeldeseite. Nach dem Login gilt die Sitzung sofort für alle Apps. Zeigt eine andere App noch die Anmeldeseite, lädt `⌘R` oder ein Klick auf die bereits aktive App in der Leiste sie neu.
 
-„Abmelden“ in den Einstellungen löscht das Profil mit allen Cookies.
+„Abmelden“ in den Einstellungen löscht das Profil mit allen Cookies, also alles, was die Odoo-Seiten gespeichert haben. Die Konfiguration bleibt erhalten. Die Sitzung auf dem Odoo-Server beendet das nicht, sie läuft dort von selbst ab. Wer sie sofort beenden will, meldet sich vorher in Odoo ab.
+
+Solange es das Einstellungsfenster noch nicht gibt, meldet nur „Abmelden“ im Benutzermenü von Odoo ab.
 
 ## Konfiguration
 
@@ -175,6 +177,7 @@ Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Sta
 
 - macOS blendet Menüleisten-Symbole aus, wenn der Platz nicht reicht, vor allem auf MacBooks mit Notch. Bei vielen Apps lohnt es sich, nur die wichtigsten in die Menüleiste zu legen und den Rest über Kürzel und App-Leiste zu erreichen.
 - Jede geöffnete App ist eine eigene Chromium-Ansicht und belegt entsprechend Arbeitsspeicher. Ansichten werden deshalb erst beim ersten Aufruf geladen.
+- OdooBar gibt sich Webseiten gegenüber als OdooBar auf Electron zu erkennen. Identitätsanbieter, die eingebettete Browser ablehnen, etwa Google, können die Anmeldung deshalb verweigern.
 
 ## Entwicklung
 
