@@ -1,4 +1,5 @@
 node_modules/
 out/
-dist/
+# Anchored so test/dist/ stays tracked.
+/dist/
 .DS_Store

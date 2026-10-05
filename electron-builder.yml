@@ -1,0 +1,16 @@
+appId: com.b42labs.odoobar
+productName: OdooBar
+directories:
+  output: dist
+files:
+  - out/src/**
+mac:
+  category: public.app-category.productivity
+  minimumSystemVersion: "13.0"
+  identity: "-"
+  hardenedRuntime: false
+  extendInfo:
+    LSUIElement: true
+  target:
+    - target: dmg
+      arch: arm64
