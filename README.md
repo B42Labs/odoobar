@@ -26,6 +26,8 @@ Für jede App mit aktivierter Option „In Menüleiste anzeigen“ erscheint ein
 | Linksklick, während die App schon im Vordergrund ist | Fenster ausblenden |
 | Rechtsklick | Menü mit „Neu laden“, „Einstellungen …“ und „Beenden“ |
 
+Die Symbole stehen in der Reihenfolge der Konfiguration, die erste App ganz links, und der Tooltip nennt die App. Liegt das Fenster hinter einem anderen Programm, holt der Klick es nach vorn. „Neu laden“ lädt die App dieses Symbols neu, auch wenn das Fenster verborgen ist oder eine andere App zeigt. Solange die App noch nicht geöffnet wurde, ist der Eintrag ausgegraut. Hat keine App die Option, zeigt OdooBar kein Symbol, und das Fenster öffnet nur ein erneuter Start von OdooBar.
+
 Die App hat kein Dock-Symbol und startet auf Wunsch automatisch bei der Anmeldung am Mac.
 
 ### Fenster
@@ -60,7 +62,7 @@ Nach dem ersten Start öffnet sich das Fenster von selbst. Bei jedem späteren S
 
 Ist ein globales Kürzel bereits von einem anderen Programm belegt, zeigen die Einstellungen einen Hinweis an.
 
-Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,` und das Zahnrad in der App-Leiste die Datei `config.json` im Finder.
+Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,`, das Zahnrad in der App-Leiste und „Einstellungen …“ im Menü eines Symbols die Datei `config.json` im Finder.
 
 ### Anmeldung
 
@@ -130,7 +132,7 @@ Beispiel:
 | `id` | Eindeutiger interner Name |
 | `name` | Anzeigename in der App-Leiste und als Tooltip in der Menüleiste |
 | `url` | Startadresse der App. Ein Pfad wie `/odoo/crm` wird an `baseUrl` angehängt, eine vollständige URL wird unverändert verwendet |
-| `icon` | Name des Symbols für die Menüleiste |
+| `icon` | Name eines [Lucide](https://lucide.dev/icons/)-Symbols für die Menüleiste, etwa `house` oder `message-circle`. Ein leerer oder unbekannter Name zeigt das Ersatzsymbol `app-window` |
 | `shortcut` | Globales Tastenkürzel im [Electron-Accelerator-Format](https://www.electronjs.org/docs/latest/api/accelerator), leer für kein Kürzel |
 | `menuBar` | `true` zeigt die App als Symbol in der Menüleiste. Bei `false` ist sie nur über App-Leiste und Kürzel erreichbar |
 
@@ -170,6 +172,8 @@ OdooBar basiert auf [Electron](https://www.electronjs.org/) und bringt damit ein
 | Autostart | `app.setLoginItemSettings` |
 
 Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert.
+
+Die Symbole der Menüleiste stammen aus [Lucide](https://lucide.dev) 1.52.0 (ISC-Lizenz). Der Build rendert jedes Symbol als Vorlagenbild in 18 Punkt, das macOS passend zur Menüleiste einfärbt.
 
 Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Standardbrowser des Systems, wenn sie aus der Odoo-Instanz hinausführen, und in derselben Ansicht, wenn sie unterhalb von `baseUrl` liegen. Ein Seitenwechsel innerhalb einer Ansicht bleibt in der Ansicht, auch wenn er zu einer fremden Adresse führt. Nur so funktioniert die Anmeldung über einen externen Identitätsanbieter. Adressen, die keine Webseiten sind, lädt keine Ansicht: `mailto:`- und `tel:`-Links gehen an das System, alles andere, etwa eine ins Fenster gezogene Datei, wird verworfen.
 
@@ -214,7 +218,7 @@ Der Container übersetzt und paketiert, signiert wird danach auf dem Mac. Eine `
 ## Offene Punkte
 
 - Endgültiger Name der App
-- Symbolsatz für die Menüleiste und Umgang mit eigenen Symbolen
+- Eigene Symbole für die Menüleiste
 - Zähler für ungelesene Discuss-Nachrichten am Menüleisten-Symbol
 - Unterstützung mehrerer Odoo-Instanzen
 - Signierung und Notarisierung für die Verteilung außerhalb des App Store
