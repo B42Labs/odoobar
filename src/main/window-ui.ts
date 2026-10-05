@@ -18,6 +18,12 @@ import type { BarState, Desktop, WindowController, WindowUi } from './window';
 const BAR_HEIGHT = 40;
 
 /**
+ * The session of every app view, so one login covers all apps. `persist:`
+ * keeps it on disk, in Partitions/odoo below the user data directory.
+ */
+const PARTITION = 'persist:odoo';
+
+/**
  * The Electron side of WindowUi: one window whose own page is the app bar,
  * with one view per app below the bar. It holds no decisions, window.ts makes
  * them and hears about clicks and keys through `events`.
@@ -29,6 +35,7 @@ export function createWindowUi(events: () => WindowController): WindowUi {
   let state: BarState | undefined;
   let shown: string | undefined;
   let quitting = false;
+  const odoo = session.fromPartition(PARTITION);
 
   // Without this, the 'close' listener below would keep OdooBar from quitting.
   app.on('before-quit', () => {
@@ -38,7 +45,7 @@ export function createWindowUi(events: () => WindowController): WindowUi {
   // A page that a view reached on another origin, or a frame from one, gets no permission.
   // A redirect or a frame to an address that is not a web page skips 'will-navigate', and
   // Electron would hand it to macOS. It goes where a link to a new window goes instead.
-  session.defaultSession.setPermissionRequestHandler((contents, permission, callback, details) => {
+  odoo.setPermissionRequestHandler((contents, permission, callback, details) => {
     if (permission !== 'openExternal') return callback(events().grantsPermission(details.requestingUrl));
     callback(false);
     const id = [...views].find(([, view]) => view.webContents === contents)?.[0];
@@ -47,9 +54,12 @@ export function createWindowUi(events: () => WindowController): WindowUi {
   });
   // A check, such as navigator.permissions.query(), follows the same rule. Electron passes
   // no WebContents for some checks, so only the origin decides.
-  session.defaultSession.setPermissionCheckHandler((_contents, _permission, requestingOrigin) =>
+  odoo.setPermissionCheckHandler((_contents, _permission, requestingOrigin) =>
     events().grantsPermission(requestingOrigin),
   );
+  // The default session holds only the app bar, which needs no permission.
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
 
   const fromBar = (event: IpcMainEvent | IpcMainInvokeEvent) =>
     window !== undefined && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === pageUrl;
@@ -127,7 +137,7 @@ export function createWindowUi(events: () => WindowController): WindowUi {
 
   return {
     openView(id, url) {
-      const view = new WebContentsView();
+      const view = new WebContentsView({ webPreferences: { partition: PARTITION } });
       const contents = view.webContents;
       views.set(id, view);
       view.setVisible(false);
