@@ -158,15 +158,19 @@ Links, die aus der Odoo-Instanz hinausführen, öffnen sich im Standardbrowser d
 
 ## Entwicklung
 
-Voraussetzungen: macOS 13 oder neuer, Node.js 22 oder neuer.
+Voraussetzungen: macOS 13 oder neuer auf Apple Silicon, Node.js 22.12 oder neuer.
 
 ```sh
-git clone git@github.com:B42Labs/odoo.git
-cd odoo
+git clone git@github.com:B42Labs/odoobar.git
+cd odoobar
 npm install
-npm start        # App im Entwicklungsmodus starten
-npm run dist     # .app und .dmg bauen
+npm start            # App im Entwicklungsmodus starten, Strg+C beendet sie
+npm test             # Unit-Tests und Starttest
+npm run dist         # .app und .dmg in dist/ bauen
+npm run test:dist    # Ergebnis von npm run dist prüfen
 ```
+
+Der erste Aufruf von `npm start`, `npm test` oder `npm run dist` lädt Electron herunter und braucht eine Netzwerkverbindung.
 
 ## Offene Punkte
 
