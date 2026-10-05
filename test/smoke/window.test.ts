@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url';
 import {
   isRunning,
   launch,
+  macOnly,
   makeUserDataDir,
   projectRoot,
   removeUserDataDir,
@@ -19,13 +20,14 @@ import {
 import {
   devtoolsPort,
   evaluate,
+  eventually,
   listPages,
+  loadedPage,
   navigate,
   readBar,
   waitForBar,
   waitForPage,
   waitForPrompt,
-  waitUntil,
   type Bar,
   type Page,
 } from '../support/devtools';
@@ -46,13 +48,6 @@ let electronBinary = '';
 before(() => {
   if (process.platform === 'darwin') electronBinary = require('electron');
 });
-
-const macOnly = { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 };
-
-/** Polls `condition` for up to 5 s until it holds. */
-function eventually(condition: () => boolean | Promise<boolean>, what: string): Promise<true> {
-  return waitUntil(async () => ((await condition()) ? true : undefined), 5_000, what);
-}
 
 /** A config.json with the apps CRM and Discuss of the instance at `baseUrl`. */
 function twoApps(baseUrl: string): string {
@@ -89,17 +84,6 @@ function isActive(page: Page, id: string): Promise<boolean> {
 }
 
 const noteOf = (page: Page) => evaluate(page, `document.getElementById('note').value`);
-
-/**
- * The page whose address ends in `urlSuffix`, once it has loaded. A page
- * shows its address as soon as its navigation commits, before its document
- * has a body.
- */
-async function loadedPage(port: number, urlSuffix: string): Promise<Page> {
-  const page = await waitForPage(port, urlSuffix, 5_000);
-  await eventually(async () => (await evaluate(page, 'document.readyState')) === 'complete', `${urlSuffix} to load`);
-  return page;
-}
 
 interface Running {
   readonly server: OdooServer;
