@@ -44,6 +44,10 @@ Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfiguri
 
 Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss und wieder zurück wechselt, landet im selben Datensatz wie zuvor.
 
+Ein Klick auf die bereits aktive App in der Leiste lädt wieder ihre Startadresse. Kann eine Seite nicht geladen werden, stehen Adresse und Grund unter der Leiste, und „Erneut versuchen“ oder `⌘R` lädt sie neu.
+
+Nach dem ersten Start öffnet sich das Fenster von selbst. Bei jedem späteren Start bleibt es verborgen. Wer OdooBar startet, während es schon läuft, holt das Fenster nach vorn. Der rote Schließen-Knopf blendet das Fenster aus, genau wie `⌘W`.
+
 ### Tastenkürzel
 
 | Kürzel | Wirkung |
@@ -55,6 +59,8 @@ Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss u
 | `⌘W` | Fenster ausblenden, OdooBar läuft in der Menüleiste weiter |
 
 Ist ein globales Kürzel bereits von einem anderen Programm belegt, zeigen die Einstellungen einen Hinweis an.
+
+Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,` und das Zahnrad in der App-Leiste die Datei `config.json` im Finder.
 
 ### Anmeldung
 
@@ -163,7 +169,7 @@ OdooBar basiert auf [Electron](https://www.electronjs.org/) und bringt damit ein
 
 Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert.
 
-Links, die aus der Odoo-Instanz hinausführen, öffnen sich im Standardbrowser des Systems. Alles unterhalb von `baseUrl` bleibt im Fenster.
+Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Standardbrowser des Systems, wenn sie aus der Odoo-Instanz hinausführen, und in derselben Ansicht, wenn sie unterhalb von `baseUrl` liegen. Ein Seitenwechsel innerhalb einer Ansicht bleibt in der Ansicht, auch wenn er zu einer fremden Adresse führt. Nur so funktioniert die Anmeldung über einen externen Identitätsanbieter. Adressen, die keine Webseiten sind, lädt keine Ansicht: `mailto:`- und `tel:`-Links gehen an das System, alles andere, etwa eine ins Fenster gezogene Datei, wird verworfen.
 
 ### Bekannte Einschränkungen
 
