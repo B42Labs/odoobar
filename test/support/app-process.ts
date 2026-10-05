@@ -1,5 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -13,6 +13,16 @@ export function makeUserDataDir(): string {
 
 export function removeUserDataDir(dir: string): void {
   rmSync(dir, { recursive: true, force: true });
+}
+
+/** A valid config.json. With it in the user data directory, OdooBar starts without the first-start prompt. */
+export const storedConfig =
+  '{\n  "baseUrl": "https://odoo.example.com",\n  "launchAtLogin": false,\n  "apps": []\n}\n';
+
+export function writeConfig(userDataDir: string, text: string): string {
+  const file = join(userDataDir, 'config.json');
+  writeFileSync(file, text);
+  return file;
 }
 
 /**
