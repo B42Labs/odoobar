@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import { ConfigStore } from './config-store';
 import { startApp } from './lifecycle';
 import { syncLoginItem } from './login-item';
+import { MenuBar } from './menu-bar';
+import { createMenuBarUi } from './menu-bar-ui';
 import { messagesFor, pickLocale } from './messages';
 import { loadOrCreateConfig } from './startup';
 import { createStartupUi } from './startup-ui';
@@ -27,7 +29,11 @@ async function start(): Promise<void> {
     messages,
     result.config,
   );
-  store.onChange((config) => controller.setConfig(config));
+  const menuBar = new MenuBar(createMenuBarUi(controller, messages), result.config);
+  store.onChange((config) => {
+    controller.setConfig(config);
+    menuBar.setConfig(config);
+  });
   // Starting OdooBar again is the way to the window: a process started
   // directly ends on the single-instance lock, and Finder reopens this one.
   app.on('second-instance', () => controller.show());
