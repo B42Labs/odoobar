@@ -306,6 +306,23 @@ test('only a page of the instance gets a permission, a page on another origin do
   });
 });
 
+test('a page of the instance finds no push service to subscribe to', macOnly, async () => {
+  await withWindow(twoApps, async ({ port }) => {
+    const crm = await loadedPage(port, '/odoo/crm');
+    // Odoo subscribes this way once it may show notifications, and shows a failure in a red box.
+    // Electron has no push service, so every subscription would fail.
+    const key = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U';
+    const subscribe = `navigator.serviceWorker.register('/web/service-worker.js', { scope: '/odoo' })
+      .then(() => navigator.serviceWorker.ready)
+      .then(({ pushManager }) => pushManager
+        ? pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: ${JSON.stringify(key)} })
+            .then(() => 'subscribed', (error) => error.message)
+        : 'no push manager')`;
+    assert.equal(await evaluate(crm, subscribe), 'no push manager');
+    assert.equal(await evaluate(crm, 'Notification.permission'), 'granted');
+  });
+});
+
 test('a view loads no page off the web and hands a mail link to the system', macOnly, async () => {
   await withWindow(twoApps, async ({ server, main, port }) => {
     const crm = await loadedPage(port, '/odoo/crm');

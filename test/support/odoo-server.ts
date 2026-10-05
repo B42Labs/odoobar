@@ -30,7 +30,8 @@ export interface OdooServerOptions {
  * asks for a new tab. A `frame` query parameter adds a frame with that
  * address, and the page sets `window.framed` once the frame has loaded or
  * failed. A `redirect` query parameter gets a redirect to that address
- * instead of a page. Port 0 picks a free port.
+ * instead of a page. /web/service-worker.js is an empty service worker that
+ * may take the scope /odoo, as the one of Odoo does. Port 0 picks a free port.
  */
 export function startOdooServer(port = 0, options: OdooServerOptions = {}): Promise<OdooServer> {
   const requests: string[] = [];
@@ -39,6 +40,10 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
     const path = request.url ?? '/';
     if (path === '/favicon.ico') {
       response.writeHead(404).end();
+      return;
+    }
+    if (path === '/web/service-worker.js') {
+      response.writeHead(200, { 'content-type': 'text/javascript', 'service-worker-allowed': '/odoo' }).end();
       return;
     }
     requests.push(request.method === 'GET' ? path : `${request.method} ${path}`);

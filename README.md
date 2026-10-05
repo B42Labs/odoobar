@@ -177,6 +177,7 @@ Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Sta
 
 - macOS blendet Menüleisten-Symbole aus, wenn der Platz nicht reicht, vor allem auf MacBooks mit Notch. Bei vielen Apps lohnt es sich, nur die wichtigsten in die Menüleiste zu legen und den Rest über Kürzel und App-Leiste zu erreichen.
 - Jede geöffnete App ist eine eigene Chromium-Ansicht und belegt entsprechend Arbeitsspeicher. Ansichten werden deshalb erst beim ersten Aufruf geladen.
+- Electron hat keinen Push-Dienst. OdooBar bietet Odoo die Push-Schnittstelle deshalb nicht an, sonst meldete Odoo bei jedem Start „Push-Benachrichtigungen konnten nicht aktiviert werden“. Benachrichtigungen zeigt Odoo trotzdem, aber nur, solange OdooBar läuft und mindestens eine App geladen ist.
 - OdooBar gibt sich Webseiten gegenüber als OdooBar auf Electron zu erkennen. Identitätsanbieter, die eingebettete Browser ablehnen, etwa Google, können die Anmeldung deshalb verweigern.
 
 ## Entwicklung
