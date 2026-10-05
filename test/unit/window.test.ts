@@ -17,13 +17,16 @@ const two: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss] };
 
 /**
  * A WindowController on a screen and a system that record every call but
- * renderBar as text. `take` returns the calls since the last `take`, and
- * `bar` the last state that the app bar got. clearProfile resolves at once
- * unless `clearWith` replaces it.
+ * renderBar and isWindowFocused as text. `take` returns the calls since the
+ * last `take`, and `bar` the last state that the app bar got. The window takes
+ * the keys from showWindow until hideWindow or `blur`, as a click into
+ * another program does. clearProfile resolves at once unless `clearWith`
+ * replaces it.
  */
 function fakeWindow(config: Config, messages: Messages = en) {
   let calls: string[] = [];
   let state: BarState | undefined;
+  let focused = false;
   let clear = (): Promise<void> => Promise.resolve();
   const ui: WindowUi = {
     openView: (id, url) => calls.push(`openView ${id} ${url}`),
@@ -34,8 +37,15 @@ function fakeWindow(config: Config, messages: Messages = en) {
     renderBar: (next) => {
       state = next;
     },
-    showWindow: () => calls.push('showWindow'),
-    hideWindow: () => calls.push('hideWindow'),
+    showWindow: () => {
+      focused = true;
+      calls.push('showWindow');
+    },
+    hideWindow: () => {
+      focused = false;
+      calls.push('hideWindow');
+    },
+    isWindowFocused: () => focused,
     clearProfile: () => {
       calls.push('clearProfile');
       return clear();
@@ -54,7 +64,10 @@ function fakeWindow(config: Config, messages: Messages = en) {
   const clearWith = (next: () => Promise<void>) => {
     clear = next;
   };
-  return { controller, take, bar: () => state, clearWith };
+  const blur = () => {
+    focused = false;
+  };
+  return { controller, take, bar: () => state, clearWith, blur };
 }
 
 /** A fakeWindow whose window is shown, with the calls of show() taken. */
@@ -165,6 +178,73 @@ test('reloadActive does nothing without an app or before the window was shown', 
   const hidden = fakeWindow(two);
   hidden.controller.reloadActive();
   assert.deepEqual(hidden.take(), []);
+});
+
+test('toggleApp shows the window with the app and hides it when that app is in front', () => {
+  const { controller, take } = fakeWindow(two);
+  controller.toggleApp('discuss');
+  assert.deepEqual(take(), ['showWindow', `openView discuss ${B}/odoo/discuss`, 'showView discuss']);
+  assert.equal(controller.activeId, 'discuss');
+  controller.toggleApp('discuss');
+  assert.deepEqual(take(), ['hideWindow']);
+  controller.toggleApp('discuss');
+  assert.deepEqual(take(), ['showWindow', 'showView discuss']);
+});
+
+test('toggleApp switches to another app in a window that is in front', () => {
+  const { controller, take } = shownWindow(two);
+  controller.toggleApp('discuss');
+  assert.deepEqual(take(), ['showWindow', `openView discuss ${B}/odoo/discuss`, 'showView discuss']);
+  assert.equal(controller.activeId, 'discuss');
+});
+
+test('toggleApp brings a window forward that shows the app behind another program', () => {
+  const { controller, take, blur } = shownWindow(two);
+  blur();
+  controller.toggleApp('crm');
+  assert.deepEqual(take(), ['showWindow', 'showView crm']);
+});
+
+test('toggleApp ignores an unknown id and an empty app list', () => {
+  const { controller, take } = shownWindow(two);
+  controller.toggleApp('nope');
+  assert.deepEqual(take(), []);
+  assert.equal(controller.activeId, 'crm');
+
+  const empty = shownWindow({ ...two, apps: [] });
+  empty.controller.toggleApp('crm');
+  assert.deepEqual(empty.take(), []);
+});
+
+test('reloadApp reloads an app in the background, and canReload tells whether it has a view', () => {
+  const { controller, take } = shownWindow(two);
+  assert.equal(controller.canReload('crm'), true);
+  for (const id of ['discuss', 'nope']) {
+    assert.equal(controller.canReload(id), false, id);
+    controller.reloadApp(id);
+    assert.deepEqual(take(), [], id);
+  }
+  controller.selectApp('discuss');
+  take();
+  controller.reloadApp('crm');
+  assert.deepEqual(take(), ['reloadView crm']);
+  assert.equal(controller.activeId, 'discuss');
+  controller.hide();
+  take();
+  controller.reloadApp('crm');
+  assert.deepEqual(take(), ['reloadView crm']);
+});
+
+test('reloadApp loads the failed address of a background app again', () => {
+  const { controller, take, bar } = shownWindow(two);
+  controller.selectApp('discuss');
+  controller.loadFailed('crm', `${B}/odoo/crm/7`, 'ERR_CONNECTION_REFUSED');
+  take();
+  assert.equal(controller.canReload('crm'), true);
+  controller.reloadApp('crm');
+  assert.deepEqual(take(), [`loadView crm ${B}/odoo/crm/7`, 'showView discuss']);
+  controller.selectApp('crm');
+  assert.equal(bar()?.notice, undefined);
 });
 
 test('an empty app list shows a notice and no view', () => {
