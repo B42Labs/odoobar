@@ -3,3 +3,4 @@ out/
 # Anchored so test/dist/ stays tracked.
 /dist/
 .DS_Store
+.test-profile/

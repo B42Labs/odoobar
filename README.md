@@ -192,6 +192,21 @@ npm run test:dist    # Ergebnis von npm run dist prüfen
 
 Der erste Aufruf von `npm start`, `npm test` oder `npm run dist` lädt Electron herunter und braucht eine Netzwerkverbindung.
 
+### Bauen mit Docker
+
+Wer kein Node.js installieren möchte, baut die App in einem Container. Dafür genügen Docker und `make`.
+
+```sh
+make build           # dist/mac-arm64/OdooBar.app im Container bauen
+make run             # bei Bedarf bauen, dann die App mit einem Testprofil starten, Strg+C beendet sie
+make reset           # Testprofil löschen, der nächste Start ist wieder ein erster Start
+make clean           # gebaute App und Testprofil löschen
+```
+
+Der Container übersetzt und paketiert, signiert wird danach auf dem Mac. Eine `.dmg` entsteht dabei nicht, die baut nur `npm run dist`.
+
+`make run` legt Konfiguration und Anmeldung in `.test-profile/` im Repository ab und lässt das Profil unter `~/Library/Application Support/OdooBar` und den Start bei der Anmeldung unberührt. Weitere Argumente reicht `ARGS` durch, etwa `make run ARGS=--lang=en`.
+
 ## Offene Punkte
 
 - Endgültiger Name der App
