@@ -111,7 +111,7 @@ Beispiel:
 
 | Feld | Bedeutung |
 | --- | --- |
-| `baseUrl` | Adresse der Odoo-Instanz, ohne abschließenden Schrägstrich |
+| `baseUrl` | Adresse der Odoo-Instanz. OdooBar ergänzt ein fehlendes `https://` und entfernt einen abschließenden Schrägstrich |
 | `launchAtLogin` | OdooBar bei der Anmeldung am Mac starten |
 | `apps` | Liste der Apps. Die Reihenfolge bestimmt die Reihenfolge in Menüleiste und App-Leiste |
 
@@ -125,6 +125,20 @@ Beispiel:
 | `icon` | Name des Symbols für die Menüleiste |
 | `shortcut` | Globales Tastenkürzel im [Electron-Accelerator-Format](https://www.electronjs.org/docs/latest/api/accelerator), leer für kein Kürzel |
 | `menuBar` | `true` zeigt die App als Symbol in der Menüleiste. Bei `false` ist sie nur über App-Leiste und Kürzel erreichbar |
+
+### Erster Start und fehlerhafte Datei
+
+Beim ersten Start fragt OdooBar nach der Odoo-URL und legt die Datei mit zwei Apps an: „Home“ (`/odoo`) und „Zeiterfassung“ (`/odoo/timesheets`), beide mit Symbol in der Menüleiste und ohne Tastenkürzel. Wer die Abfrage schließt, beendet OdooBar, und der nächste Start fragt erneut.
+
+Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. Fehlt `apps`, ist die Liste leer. Fehlt `icon` oder `shortcut`, gilt der leere Text. Jede App braucht `id`, `name` und `url`, und jede `id` darf nur einmal vorkommen.
+
+`launchAtLogin` und `menuBar` sind `true` oder `false`, `apps` ist eine Liste, alle anderen Felder sind Texte. `id` und `name` dürfen nicht leer sein. `baseUrl` verwendet `http://` oder `https://` und enthält weder Benutzername noch Passwort, `?` oder `#`. Die `url` einer App ist ein Pfad, der mit `/` beginnt, oder eine vollständige Adresse mit `http://` oder `https://`.
+
+OdooBar liest die Datei beim Start. Änderungen von Hand wirken nach einem Neustart. Ist die Datei kein gültiges JSON oder verletzt sie eine dieser Regeln, nennt ein Dialog die Stelle und bietet zwei Wege an: „Beenden“ lässt die Datei unverändert, „Zurücksetzen“ benennt sie in `config.invalid-<Datum>-<Uhrzeit>.json` um und fragt erneut nach der Odoo-URL.
+
+Die Oberfläche ist deutsch, wenn macOS OdooBar auf Deutsch startet, und sonst englisch. Auf einem englischen System heißt die zweite App „Timesheets“.
+
+Der Start bei der Anmeldung gilt nur für die gebaute App, nicht für `npm start`.
 
 ### Odoo-URLs
 
