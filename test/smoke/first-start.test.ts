@@ -9,6 +9,7 @@ import {
   expectRunningAgentApp,
   isRunning,
   launch,
+  macOnly,
   makeUserDataDir,
   projectRoot,
   removeUserDataDir,
@@ -21,10 +22,10 @@ import {
 import {
   devtoolsPort,
   evaluate,
+  eventually,
   listPages,
   navigate,
   waitForPrompt,
-  waitUntil,
   type Page,
 } from '../support/devtools';
 
@@ -35,13 +36,6 @@ let electronBinary = '';
 before(() => {
   if (process.platform === 'darwin') electronBinary = require('electron');
 });
-
-const macOnly = { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 };
-
-/** Polls `condition` for up to 5 s until it holds. */
-function eventually(condition: () => boolean | Promise<boolean>, what: string): Promise<true> {
-  return waitUntil(async () => ((await condition()) ? true : undefined), 5_000, what);
-}
 
 function textOf(page: Page, id: string): Promise<unknown> {
   return evaluate(page, `document.getElementById(${JSON.stringify(id)}).textContent`);

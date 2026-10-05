@@ -91,3 +91,29 @@ export async function closeWindow(main: Page): Promise<void> {
 export async function resizeWindow(main: Page, width: number, height: number): Promise<void> {
   await evaluate(main, `${electron}.BrowserWindow.getAllWindows()[0].setContentSize(${width}, ${height}); true`);
 }
+
+/**
+ * Keeps the WindowController that shows the window next, so a test can call
+ * what no control reaches yet. Call it before the window first shows.
+ */
+export async function captureController(main: Page): Promise<void> {
+  await evaluate(
+    main,
+    `(() => {
+      // process.mainModule is Electron's own module, so the path is absolute.
+      const { join } = process.mainModule.require('node:path');
+      const { WindowController } = process.mainModule.require(join(${electron}.app.getAppPath(), 'out/src/main/window.js'));
+      const show = WindowController.prototype.show;
+      WindowController.prototype.show = function () {
+        globalThis.controller = this;
+        return show.call(this);
+      };
+      return true;
+    })()`,
+  );
+}
+
+/** Signs out the way the settings window will. Resolves once the profile is cleared. */
+export async function signOut(main: Page): Promise<void> {
+  await evaluate(main, 'globalThis.controller.signOut().then(() => true)');
+}

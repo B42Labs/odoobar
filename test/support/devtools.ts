@@ -22,6 +22,11 @@ export async function waitUntil<T>(
   }
 }
 
+/** Polls `condition` for up to 5 s until it holds. */
+export function eventually(condition: () => boolean | Promise<boolean>, what: string): Promise<true> {
+  return waitUntil(async () => ((await condition()) ? true : undefined), 5_000, what);
+}
+
 /**
  * The DevTools port of an app launched with --remote-debugging-port=0.
  * Chromium writes the port it picked to DevToolsActivePort in the user data
@@ -88,6 +93,17 @@ export async function evaluate(page: Page, expression: string): Promise<unknown>
   };
   if (failure) throw new Error(failure.exception?.description ?? failure.text);
   return result?.value;
+}
+
+/**
+ * The page whose address ends in `urlSuffix`, once it has loaded. A page
+ * shows its address as soon as its navigation commits, before its document
+ * has a body.
+ */
+export async function loadedPage(port: number, urlSuffix: string): Promise<Page> {
+  const page = await waitForPage(port, urlSuffix, 5_000);
+  await eventually(async () => (await evaluate(page, 'document.readyState')) === 'complete', `${urlSuffix} to load`);
+  return page;
 }
 
 /** Loads `url` in the page the way the main process would, so 'will-navigate' does not fire. */

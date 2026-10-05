@@ -7,6 +7,9 @@ import { setTimeout as sleep } from 'node:timers/promises';
 /** Repository root. This file runs from out/test/support/, three levels below it. */
 export const projectRoot = resolve(__dirname, '../../..');
 
+/** The options of a test that launches OdooBar, which runs only on macOS. */
+export const macOnly = { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 };
+
 export function makeUserDataDir(): string {
   return mkdtempSync(join(tmpdir(), 'odoobar-test-'));
 }
