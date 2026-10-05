@@ -9,7 +9,9 @@ import {
   projectRoot,
   removeUserDataDir,
   stop,
+  storedConfig,
   waitForExit,
+  writeConfig,
 } from '../support/app-process';
 
 let electronBinary = '';
@@ -25,6 +27,7 @@ test(
   { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 },
   async () => {
     const userDataDir = makeUserDataDir();
+    writeConfig(userDataDir, storedConfig);
     const first = launch(electronBinary, [projectRoot], userDataDir);
     let second: ChildProcess | undefined;
     try {

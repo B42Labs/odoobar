@@ -4,6 +4,9 @@ import { fill, type Messages } from './messages';
 
 export type SubmitResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
+/** The texts of the first-start page, as the 'first-start:init' handler returns them. */
+export type FirstStartTexts = Messages['firstStart'] & { readonly quit: string };
+
 /** The seam between the startup decisions and the screen. startup-ui.ts is the Electron side. */
 export interface StartupUi {
   /**
