@@ -61,9 +61,8 @@ test('returns a stored configuration without showing anything', async () => {
     const file = writeConfig(dir, storedConfig);
     const { ui, calls } = fakeUi();
     assert.deepEqual(await loadOrCreateConfig(new ConfigStore(file), ui, en), {
-      baseUrl: 'https://odoo.example.com',
-      launchAtLogin: false,
-      apps: [],
+      config: { baseUrl: 'https://odoo.example.com', launchAtLogin: false, apps: [] },
+      created: false,
     });
     assert.deepEqual(calls, []);
     assert.equal(readFileSync(file, 'utf8'), storedConfig);
@@ -78,14 +77,14 @@ test('asks for the URL on first start and stores the seeded configuration', asyn
     const file = join(dir, 'config.json');
     const store = new ConfigStore(file);
     const { ui, results } = fakeUi({ inputs: ['ftp://odoo.example.com', ' odoo.example.com/ '] });
-    const config = await loadOrCreateConfig(store, ui, en);
+    const result = await loadOrCreateConfig(store, ui, en);
     assert.deepEqual(results, [
       { ok: false, error: 'The address must start with http:// or https://.' },
       { ok: true },
     ]);
     assert.equal(readFileSync(file, 'utf8'), seededConfig('Timesheets'));
-    assert.deepEqual(config, initialConfig('https://odoo.example.com', en));
-    assert.deepEqual(config, store.get());
+    assert.deepEqual(result, { config: initialConfig('https://odoo.example.com', en), created: true });
+    assert.deepEqual(result?.config, store.get());
   } finally {
     removeUserDataDir(dir);
   }
@@ -156,9 +155,9 @@ test('renames an invalid file and asks for the URL after a reset', async () => {
   try {
     const file = writeConfig(dir, invalidApp);
     const { ui, methods } = fakeUi({ reset: true, inputs: ['https://odoo.example.com'] });
-    const config = await loadOrCreateConfig(new ConfigStore(file), ui, en);
+    const result = await loadOrCreateConfig(new ConfigStore(file), ui, en);
     assert.deepEqual(methods(), ['confirmReset', 'askBaseUrl']);
-    assert.deepEqual(config, initialConfig('https://odoo.example.com', en));
+    assert.deepEqual(result, { config: initialConfig('https://odoo.example.com', en), created: true });
 
     const backups = readdirSync(dir).filter((name) => /^config\.invalid-\d{8}-\d{6}\.json$/.test(name));
     assert.equal(backups.length, 1);
