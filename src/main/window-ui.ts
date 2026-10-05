@@ -137,7 +137,12 @@ export function createWindowUi(events: () => WindowController): WindowUi {
 
   return {
     openView(id, url) {
-      const view = new WebContentsView({ webPreferences: { partition: PARTITION } });
+      // Electron has no push service, so a subscription always fails, and Odoo shows that in a
+      // red box on every start. Without the Push API, Odoo does not try. It still shows its
+      // notifications while OdooBar runs, since those need only the permission.
+      const view = new WebContentsView({
+        webPreferences: { partition: PARTITION, disableBlinkFeatures: 'PushMessaging' },
+      });
       const contents = view.webContents;
       views.set(id, view);
       view.setVisible(false);
