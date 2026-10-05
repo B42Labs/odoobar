@@ -19,6 +19,33 @@ export function removeUserDataDir(dir: string): void {
 export const storedConfig =
   '{\n  "baseUrl": "https://odoo.example.com",\n  "launchAtLogin": false,\n  "apps": []\n}\n';
 
+/** The config.json that a first start writes for https://odoo.example.com, with the name of the second app. */
+export function seededConfig(timesheets: string): string {
+  return `{
+  "baseUrl": "https://odoo.example.com",
+  "launchAtLogin": false,
+  "apps": [
+    {
+      "id": "home",
+      "name": "Home",
+      "url": "/odoo",
+      "icon": "house",
+      "shortcut": "",
+      "menuBar": true
+    },
+    {
+      "id": "timesheets",
+      "name": "${timesheets}",
+      "url": "/odoo/timesheets",
+      "icon": "clock",
+      "shortcut": "",
+      "menuBar": true
+    }
+  ]
+}
+`;
+}
+
 export function writeConfig(userDataDir: string, text: string): string {
   const file = join(userDataDir, 'config.json');
   writeFileSync(file, text);
