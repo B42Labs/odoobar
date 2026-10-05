@@ -12,7 +12,7 @@
     "build": "rm -rf out && tsc && mkdir -p out/src/renderer && cp src/renderer/*.html out/src/renderer/",
     "typecheck": "tsc --noEmit",
     "start": "npm run build && electron .",
-    "test": "npm run build && node --test \"out/test/unit/*.test.js\" \"out/test/smoke/*.test.js\"",
+    "test": "npm run build && node --test --test-concurrency=1 \"out/test/unit/*.test.js\" \"out/test/smoke/*.test.js\"",
     "dist": "npm run build && electron-builder --mac",
     "test:dist": "npm run build && node --test \"out/test/dist/*.test.js\""
   },
