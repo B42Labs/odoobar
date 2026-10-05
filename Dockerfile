@@ -10,6 +10,7 @@ RUN npm ci
 COPY tsconfig.json electron-builder.yml ./
 COPY src src
 COPY test test
+COPY scripts scripts
 RUN npm run build
 
 FROM build AS package
