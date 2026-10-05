@@ -111,3 +111,43 @@ export async function waitForPrompt(userDataDir: string): Promise<{ port: number
   );
   return { port, page };
 }
+
+export interface Bar {
+  readonly apps: { readonly id: string; readonly name: string; readonly active: boolean }[];
+  /** The text below the bar, or undefined while a view covers it. */
+  readonly notice: string | undefined;
+  readonly retry: boolean;
+  readonly visible: boolean;
+}
+
+/** What the app bar page shows right now. */
+export async function readBar(page: Page): Promise<Bar> {
+  return (await evaluate(
+    page,
+    `({
+      apps: [...document.querySelectorAll('#apps button')].map((button) => ({
+        id: button.dataset.appId,
+        name: button.textContent,
+        active: button.getAttribute('aria-current') === 'true',
+      })),
+      notice: document.getElementById('notice').hidden ? undefined : document.getElementById('notice-text').textContent,
+      retry: !document.getElementById('notice').hidden && !document.getElementById('retry').hidden,
+      visible: document.visibilityState === 'visible',
+    })`,
+  )) as Bar;
+}
+
+/**
+ * The app bar page of an app launched with --remote-debugging-port=0, once
+ * its preload script has drawn the bar. The page keeps its body hidden until
+ * then.
+ */
+export async function waitForBar(port: number): Promise<Page> {
+  const page = await waitForPage(port, '/renderer/app-bar.html', 15_000);
+  await waitUntil(
+    async () => ((await evaluate(page, 'document.body !== null && !document.body.hidden')) === true ? true : undefined),
+    5_000,
+    'the app bar',
+  );
+  return page;
+}
