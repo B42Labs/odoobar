@@ -1,6 +1,6 @@
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -15,7 +15,7 @@ import {
   waitForExit,
   writeConfig,
 } from '../support/app-process';
-import { waitForPrompt } from '../support/devtools';
+import { devtoolsPort, readBar, waitForBar, waitForPrompt } from '../support/devtools';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
 const appPath = join(projectRoot, 'dist/mac-arm64/OdooBar.app');
@@ -92,6 +92,24 @@ test('built app shows the first-start prompt when no configuration exists', { ti
   try {
     await waitForPrompt(userDataDir);
   } finally {
+    await stop(app);
+    removeUserDataDir(userDataDir);
+  }
+});
+
+test('built app opens its window when it is started again', { timeout: 60_000 }, async () => {
+  const userDataDir = makeUserDataDir();
+  writeConfig(userDataDir, storedConfig);
+  const app = launch(executable, ['--remote-debugging-port=0', '--lang=en'], userDataDir);
+  let again: ChildProcess | undefined;
+  try {
+    // The app holds the single-instance lock by the time it writes the port.
+    const port = await devtoolsPort(userDataDir, 30_000);
+    again = launch(executable, [], userDataDir);
+    assert.equal(await waitForExit(again, 15_000), 0);
+    assert.equal((await readBar(await waitForBar(port))).notice, 'No apps are configured.');
+  } finally {
+    if (again) await stop(again);
     await stop(app);
     removeUserDataDir(userDataDir);
   }
