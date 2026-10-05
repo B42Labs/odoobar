@@ -15,7 +15,8 @@ import {
   waitForExit,
   writeConfig,
 } from '../support/app-process';
-import { devtoolsPort, readBar, waitForBar, waitForPrompt } from '../support/devtools';
+import { devtoolsPort, evaluate, readBar, waitForBar, waitForPrompt } from '../support/devtools';
+import { iconImages, launchInspected } from '../support/main-process';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
 const appPath = join(projectRoot, 'dist/mac-arm64/OdooBar.app');
@@ -111,6 +112,27 @@ test('built app opens its window when it is started again', { timeout: 60_000 },
   } finally {
     if (again) await stop(again);
     await stop(app);
+    removeUserDataDir(userDataDir);
+  }
+});
+
+test('built app loads its menu bar icons from the bundle', { timeout: 60_000 }, async () => {
+  const userDataDir = makeUserDataDir();
+  let app: ChildProcess | undefined;
+  try {
+    writeConfig(userDataDir, storedConfig);
+    const inspected = await launchInspected(executable, [], userDataDir);
+    app = inspected.app;
+    const appPath = await evaluate(inspected.main, `process.mainModule.require('electron').app.getAppPath()`);
+    assert.match(String(appPath), /\/app\.asar$/);
+    const [house, empty] = await iconImages(inspected.main, ['house', '']);
+    assert.ok(house && empty);
+    assert.deepEqual(house.size, { width: 18, height: 18 });
+    assert.deepEqual(house.scaleFactors, [1, 2]);
+    // A house that the bundle failed to deliver would be the fallback icon, as for an empty name.
+    assert.notEqual(house.png, empty.png);
+  } finally {
+    if (app) await stop(app);
     removeUserDataDir(userDataDir);
   }
 });
