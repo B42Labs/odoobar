@@ -66,6 +66,12 @@ export function submitBaseUrl(store: ConfigStore, input: string, messages: Messa
   return { ok: true };
 }
 
+/** The configuration to run with. `created` is true when this start asked for the address and wrote the file. */
+export interface StartupResult {
+  readonly config: Config;
+  readonly created: boolean;
+}
+
 /**
  * Returns the configuration to run with, or undefined when OdooBar has to
  * quit. A missing file opens the first-start prompt. An invalid file stays as
@@ -76,11 +82,11 @@ export async function loadOrCreateConfig(
   store: ConfigStore,
   ui: StartupUi,
   messages: Messages,
-): Promise<Config | undefined> {
+): Promise<StartupResult | undefined> {
   const result = store.load();
   switch (result.status) {
     case 'loaded':
-      return result.config;
+      return { config: result.config, created: false };
     case 'unreadable':
       await ui.showFatal(messages.unreadableConfig, `${store.filePath}\n\n${result.reason}`);
       return undefined;
@@ -104,5 +110,5 @@ export async function loadOrCreateConfig(
       break;
   }
   const saved = await ui.askBaseUrl((input) => submitBaseUrl(store, input, messages));
-  return saved ? store.get() : undefined;
+  return saved ? { config: store.get(), created: true } : undefined;
 }

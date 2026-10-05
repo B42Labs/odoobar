@@ -12,12 +12,12 @@ async function start(): Promise<void> {
   // app.getLocale() is valid only after ready.
   const messages = messagesFor(pickLocale(app.getLocale()));
   const store = new ConfigStore(join(app.getPath('userData'), 'config.json'));
-  const config = await loadOrCreateConfig(store, createStartupUi(messages), messages);
-  if (!config) {
+  const result = await loadOrCreateConfig(store, createStartupUi(messages), messages);
+  if (!result) {
     app.quit();
     return;
   }
-  syncLoginItem(app, config.launchAtLogin);
+  syncLoginItem(app, result.config.launchAtLogin);
 }
 
 if (startApp(app)) {
