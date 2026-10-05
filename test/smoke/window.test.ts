@@ -300,7 +300,7 @@ test('a page on another origin stays in the view, and a click on the active app 
 });
 
 test('only a page of the instance gets a permission, a page on another origin does not', macOnly, async () => {
-  await withWindow(twoApps, async ({ port }) => {
+  await withWindow(twoApps, async ({ port, bar }) => {
     const other = await startOdooServer();
     try {
       // Asking for a permission and checking it take different ways through Electron.
@@ -314,6 +314,8 @@ test('only a page of the instance gets a permission, a page on another origin do
       await evaluate(crm, `location.href = ${JSON.stringify(`${other.baseUrl}/page`)}; true`);
       const page = await loadedPage(port, `${other.baseUrl}/page`);
       assert.deepEqual(await evaluate(page, notifications), ['denied', 'denied']);
+      // The app bar is in the default session, which has no page of the instance.
+      assert.deepEqual(await evaluate(bar, notifications), ['denied', 'denied']);
     } finally {
       await other.close();
     }
