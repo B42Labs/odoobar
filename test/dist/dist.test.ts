@@ -15,6 +15,7 @@ import {
   waitForExit,
   writeConfig,
 } from '../support/app-process';
+import { waitForPrompt } from '../support/devtools';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
 const appPath = join(projectRoot, 'dist/mac-arm64/OdooBar.app');
@@ -79,6 +80,17 @@ test('built app runs without a Dock icon', { timeout: 60_000 }, async () => {
     await expectRunningAgentApp(app);
     app.kill('SIGTERM');
     assert.equal(await waitForExit(app, 10_000), 0);
+  } finally {
+    await stop(app);
+    removeUserDataDir(userDataDir);
+  }
+});
+
+test('built app shows the first-start prompt when no configuration exists', { timeout: 60_000 }, async () => {
+  const userDataDir = makeUserDataDir();
+  const app = launch(executable, ['--remote-debugging-port=0'], userDataDir);
+  try {
+    await waitForPrompt(userDataDir);
   } finally {
     await stop(app);
     removeUserDataDir(userDataDir);
