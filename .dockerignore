@@ -1,0 +1,6 @@
+.git/
+node_modules/
+out/
+/dist/
+.test-profile/
+.DS_Store
