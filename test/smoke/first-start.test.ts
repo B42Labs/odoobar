@@ -73,7 +73,10 @@ test('first start asks for the Odoo URL and stores the seeded configuration', ma
     await eventually(() => existsSync(file), 'config.json');
     assert.equal(readFileSync(file, 'utf8'), seededConfig('Timesheets'));
 
-    await eventually(async () => (await listPages(port)).length === 0, 'the prompt to close');
+    await eventually(
+      async () => !(await listPages(port)).some((open) => open.url.endsWith('/renderer/first-start.html')),
+      'the prompt to close',
+    );
     await sleep(1_000);
     assert.ok(isRunning(app));
     app.kill('SIGTERM');
