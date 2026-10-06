@@ -33,6 +33,7 @@ export function seededConfig(timesheets: string): string {
   return `{
   "baseUrl": "https://odoo.example.com",
   "launchAtLogin": false,
+  "attendance": true,
   "apps": [
     {
       "id": "home",

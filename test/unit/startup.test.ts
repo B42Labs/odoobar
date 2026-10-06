@@ -61,7 +61,7 @@ test('returns a stored configuration without showing anything', async () => {
     const file = writeConfig(dir, storedConfig);
     const { ui, calls } = fakeUi();
     assert.deepEqual(await loadOrCreateConfig(new ConfigStore(file), ui, en), {
-      config: { baseUrl: 'https://odoo.example.com', launchAtLogin: false, apps: [] },
+      config: { baseUrl: 'https://odoo.example.com', launchAtLogin: false, attendance: true, apps: [] },
       created: false,
     });
     assert.deepEqual(calls, []);
@@ -85,6 +85,7 @@ test('asks for the URL on first start and stores the seeded configuration', asyn
     assert.equal(readFileSync(file, 'utf8'), seededConfig('Timesheets'));
     assert.deepEqual(result, { config: initialConfig('https://odoo.example.com', en), created: true });
     assert.deepEqual(result?.config, store.get());
+    assert.equal(result?.config.attendance, true);
   } finally {
     removeUserDataDir(dir);
   }

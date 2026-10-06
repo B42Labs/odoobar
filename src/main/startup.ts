@@ -21,14 +21,15 @@ export interface StartupUi {
 }
 
 /**
- * The configuration a first start writes: two apps with a menu bar icon and
- * no shortcut. The language picks their names once, they are ordinary values
- * in the file afterwards.
+ * The configuration a first start writes: the attendance button on, and two
+ * apps with a menu bar icon and no shortcut. The language picks their names
+ * once, they are ordinary values in the file afterwards.
  */
 export function initialConfig(baseUrl: string, messages: Messages): Config {
   return {
     baseUrl,
     launchAtLogin: false,
+    attendance: true,
     apps: [
       { id: 'home', name: messages.seedApps.home, url: '/odoo', icon: 'house', shortcut: '', menuBar: true },
       {

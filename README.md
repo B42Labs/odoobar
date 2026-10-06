@@ -149,6 +149,7 @@ Beispiel:
 {
   "baseUrl": "https://odoo.example.com",
   "launchAtLogin": true,
+  "attendance": true,
   "apps": [
     {
       "id": "discuss",

@@ -9,6 +9,7 @@ import { makeUserDataDir, removeUserDataDir, storedConfig, writeConfig } from '.
 const config: Config = {
   baseUrl: 'https://odoo.example.com',
   launchAtLogin: true,
+  attendance: true,
   apps: [{ id: 'crm', name: 'CRM', url: '/odoo/crm', icon: 'handshake', shortcut: '', menuBar: true }],
 };
 
@@ -29,7 +30,7 @@ test('load returns the stored configuration and get returns it again', () => {
   const dir = makeUserDataDir();
   try {
     const store = new ConfigStore(writeConfig(dir, storedConfig));
-    const expected = { baseUrl: 'https://odoo.example.com', launchAtLogin: false, apps: [] };
+    const expected = { baseUrl: 'https://odoo.example.com', launchAtLogin: false, attendance: true, apps: [] };
     assert.deepEqual(store.load(), { status: 'loaded', config: expected });
     assert.deepEqual(store.get(), expected);
   } finally {

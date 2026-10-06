@@ -12,7 +12,7 @@ function entry(id: string, name: string, icon: string, menuBar: boolean): AppCon
 const crm = entry('crm', 'CRM', 'handshake', true);
 const discuss = entry('discuss', 'Discuss', 'message-circle', false);
 const calendar = entry('calendar', 'Calendar', '', true);
-const three: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss, calendar] };
+const three: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: [crm, discuss, calendar] };
 
 /** A menu bar that records the items of every showItems call. `take` returns the calls since the last `take`. */
 function fakeMenuBar() {

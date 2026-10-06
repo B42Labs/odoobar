@@ -12,6 +12,7 @@ export interface AppConfig {
 export interface Config {
   readonly baseUrl: string;
   readonly launchAtLogin: boolean;
+  readonly attendance: boolean;
   readonly apps: readonly AppConfig[];
 }
 
@@ -74,9 +75,9 @@ function readText(object: JsonObject, parent: string, key: string): string {
   return value;
 }
 
-/** Reads a boolean. An absent key gives false. */
-function readBoolean(object: JsonObject, parent: string, key: string): boolean {
-  if (!Object.hasOwn(object, key)) return false;
+/** Reads a boolean. An absent key gives `fallback`. */
+function readBoolean(object: JsonObject, parent: string, key: string, fallback = false): boolean {
+  if (!Object.hasOwn(object, key)) return fallback;
   const value = object[key];
   if (typeof value !== 'boolean') throw new ConfigError('expected-boolean', pathOf(parent, key));
   return value;
@@ -139,6 +140,7 @@ export function validateConfig(value: unknown): Config {
   if (!isObject(value)) throw new ConfigError('expected-object', '');
   const baseUrl = normalizeBaseUrl(readString(value, '', 'baseUrl'));
   const launchAtLogin = readBoolean(value, '', 'launchAtLogin');
+  const attendance = readBoolean(value, '', 'attendance', true);
   const list = Object.hasOwn(value, 'apps') ? value.apps : [];
   if (!Array.isArray(list)) throw new ConfigError('expected-array', 'apps');
   const apps: AppConfig[] = [];
@@ -150,7 +152,7 @@ export function validateConfig(value: unknown): Config {
     ids.add(app.id);
     apps.push(app);
   }
-  return { baseUrl, launchAtLogin, apps };
+  return { baseUrl, launchAtLogin, attendance, apps };
 }
 
 /** Parses and validates the text of config.json. Text that is no JSON, an empty file included, gives `invalid-json`. */
@@ -170,6 +172,7 @@ export function serializeConfig(config: Config): string {
   const value = {
     baseUrl: config.baseUrl,
     launchAtLogin: config.launchAtLogin,
+    attendance: config.attendance,
     apps: config.apps.map((app) => ({
       id: app.id,
       name: app.name,

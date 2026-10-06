@@ -49,6 +49,8 @@ test('parseConfig accepts the example in the README', () => {
 test('parseConfig fills in the optional fields', () => {
   const bare = parseConfig('{"baseUrl":"https://odoo.example.com"}');
   assert.equal(bare.launchAtLogin, false);
+  // A file of a version without the attendance button turns it on.
+  assert.equal(bare.attendance, true);
   assert.deepEqual(bare.apps, []);
 
   const withApp = parseConfig(
@@ -63,8 +65,14 @@ test('parseConfig normalizes baseUrl and drops unknown fields', () => {
   assert.deepEqual(parseConfig('{"baseUrl":"odoo.example.com/","theme":"dark","apps":[]}'), {
     baseUrl: 'https://odoo.example.com',
     launchAtLogin: false,
+    attendance: true,
     apps: [],
   });
+});
+
+test('parseConfig keeps an attendance button that is off', () => {
+  assert.equal(parseConfig('{"baseUrl":"https://odoo.example.com","attendance":false}').attendance, false);
+  assert.equal(parseConfig('{"baseUrl":"https://odoo.example.com","attendance":true}').attendance, true);
 });
 
 const validApp = { id: 'crm', name: 'CRM', url: '/odoo/crm', icon: 'handshake', shortcut: '', menuBar: true };
@@ -96,6 +104,18 @@ const invalidFiles: { name: string; input: string; code: ConfigErrorCode; path: 
     input: '{"baseUrl":"https://odoo.example.com","launchAtLogin":"yes"}',
     code: 'expected-boolean',
     path: 'launchAtLogin',
+  },
+  {
+    name: 'a text attendance',
+    input: '{"baseUrl":"https://odoo.example.com","attendance":"yes"}',
+    code: 'expected-boolean',
+    path: 'attendance',
+  },
+  {
+    name: 'a null attendance',
+    input: '{"baseUrl":"https://odoo.example.com","attendance":null}',
+    code: 'expected-boolean',
+    path: 'attendance',
   },
   {
     name: 'apps as an object',
@@ -220,6 +240,7 @@ test('resolveAppUrl appends a path to the base URL and keeps a full URL', () => 
 test('serializeConfig writes the fields in README order with a final newline', () => {
   const reversed = {
     apps: [{ menuBar: true, shortcut: 'Control+Alt+C', icon: 'handshake', url: '/odoo/crm', name: 'CRM', id: 'crm' }],
+    attendance: false,
     launchAtLogin: true,
     baseUrl: 'https://odoo.example.com',
   };
@@ -229,6 +250,7 @@ test('serializeConfig writes the fields in README order with a final newline', (
       '{',
       '  "baseUrl": "https://odoo.example.com",',
       '  "launchAtLogin": true,',
+      '  "attendance": false,',
       '  "apps": [',
       '    {',
       '      "id": "crm",',
