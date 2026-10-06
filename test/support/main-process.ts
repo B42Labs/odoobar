@@ -207,6 +207,11 @@ export async function signOut(main: Page): Promise<void> {
   await evaluate(main, 'globalThis.controller.signOut().then(() => true)');
 }
 
+/** Offers a newer release in the app bar, as the update check does. Needs captureController first. */
+export async function showUpdate(main: Page, update: { version: string; url: string }): Promise<void> {
+  await evaluate(main, `globalThis.controller.setUpdate(${JSON.stringify(update)}); true`);
+}
+
 /**
  * Keeps the ConfigStore that saves next, so a test can save a configuration
  * without the settings window. Call it before the first-start prompt saves.
@@ -525,4 +530,21 @@ export async function iconImages(main: Page, names: string[]): Promise<IconImage
       });
     })`,
   )) as IconImage[];
+}
+
+export interface Fetched {
+  /** What the call resolved to. `evaluate` drops a value of undefined, so an answer without a document gives {}. */
+  readonly value?: unknown;
+  /** What the call rejected with, as text. */
+  readonly error?: string;
+}
+
+/** What fetchReleaseJson of updates-ui.js gives for an address, once the app is ready. */
+export async function fetchReleaseJson(main: Page, url: string): Promise<Fetched> {
+  return (await evaluate(
+    main,
+    `${electron}.app.whenReady()
+      .then(() => ${mainModule('updates-ui.js')}.fetchReleaseJson(${JSON.stringify(url)}))
+      .then((value) => ({ value }), (error) => ({ error: String(error) }))`,
+  )) as Fetched;
 }
