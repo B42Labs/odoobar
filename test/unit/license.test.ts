@@ -66,3 +66,8 @@ test('package.json names the licensor and the license', () => {
   assert.equal(manifest.author, 'B42 Labs');
   assert.equal(manifest.license, 'BUSL-1.1');
 });
+
+test('README.md names the license and links to its text', () => {
+  const readme = readFileSync(join(projectRoot, 'README.md'), 'utf8');
+  assert.ok(readme.includes('[Business Source License 1.1](LICENSE)'), 'README.md does not link to LICENSE');
+});

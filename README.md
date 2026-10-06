@@ -1,7 +1,5 @@
 # OdooBar
 
-> Arbeitstitel. Status: Konzept. Dieses Repository enthält noch keinen Code, die README beschreibt den geplanten Funktionsumfang.
-
 OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, Kalender) als Symbole in die Menüleiste oben rechts legt. Ein Klick oder ein globales Tastenkürzel holt die jeweilige App in einem eigenen Fenster nach vorn. Die Seiten laufen in einer eingebetteten Chromium-Engine, es wird kein Safari, Chrome oder anderer installierter Browser geöffnet.
 
 ## Funktionen
@@ -15,6 +13,24 @@ OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, K
 - **Apps aus Odoo heraus öffnen**: Ein Klick auf eine App in Odoo, etwa auf der Startseite, wechselt zu ihrem Eintrag in der App-Leiste. Fehlt die App dort, bekommt sie einen Eintrag, der sich wieder schließen lässt.
 - **Eingebetteter Browser**: Die Darstellung übernimmt Chromium über Electron.
 - **Hinweis auf neue Versionen**: Gibt es eine neuere Version von OdooBar, nennt ein Knopf in der App-Leiste sie und führt zu ihrem Download.
+
+## Installation
+
+OdooBar läuft auf macOS 13 oder neuer auf einem Mac mit Apple Silicon.
+
+1. Die `.dmg` des [neuesten Release](https://github.com/B42Labs/odoobar/releases/latest) laden, öffnen und OdooBar in den Ordner „Programme“ ziehen.
+2. OdooBar öffnen. macOS blockiert den ersten Start, weil der Build keine Developer-ID-Signatur hat und nicht notarisiert ist. Die Meldung mit „Fertig“ schließen.
+3. Die Systemeinstellungen öffnen, zu „Datenschutz & Sicherheit“ gehen, nach unten zu „Sicherheit“ scrollen und neben dem Hinweis zu OdooBar auf „Dennoch öffnen“ klicken. Mit „Dennoch öffnen“ und dem Passwort oder Touch ID bestätigen.
+
+macOS fragt einmal pro installierter Version. Unter macOS 13 und 14 geht es kürzer: OdooBar im Ordner „Programme“ mit gedrückter Control-Taste anklicken, „Öffnen“ wählen und mit „Öffnen“ bestätigen.
+
+Statt der Schritte 2 und 3 lässt sich die Download-Markierung im Terminal entfernen:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/OdooBar.app
+```
+
+Beim ersten Start fragt OdooBar nach der Odoo-URL, siehe „Anmeldung“. Wie eine neuere Version installiert wird, steht unter „Aktualisierung“.
 
 ## Bedienung
 
@@ -115,7 +131,7 @@ Die Zeile einer App zeigt nach dem Speichern einen Hinweis, wenn ihr Kürzel kei
 
 Die installierte App fragt beim Start und danach alle 24 Stunden bei GitHub nach dem neuesten Release von `B42Labs/odoobar`. Die Anfrage enthält nichts aus der Konfiguration und nichts von Odoo. Ist das Release neuer als die laufende Version, erscheint links vom Zahnrad ein Knopf mit der neuen Versionsnummer, etwa „Update auf 0.2.0“. Er öffnet die Release-Seite im Standardbrowser und bleibt, bis OdooBar beendet wird.
 
-Installiert wird von Hand: die `.dmg` von der Release-Seite laden, OdooBar beenden, die App im Ordner „Programme“ ersetzen und sie öffnen, wie es die Release-Seite beschreibt. Konfiguration und Anmeldung bleiben erhalten. Selbst installieren kann OdooBar ein Update nicht, denn macOS erlaubt das nur signierten Apps.
+Installiert wird von Hand: die `.dmg` von der Release-Seite laden, OdooBar beenden, die App im Ordner „Programme“ ersetzen und sie öffnen, wie unter „Installation“ beschrieben. Konfiguration und Anmeldung bleiben erhalten. Selbst installieren kann OdooBar ein Update nicht, denn macOS erlaubt das nur signierten Apps.
 
 Schlägt eine Abfrage fehl, etwa ohne Netzwerk, zeigt OdooBar nichts an, und die nächste Abfrage versucht es erneut. `npm start` und `make run` fragen nie. Solange das Repository privat ist, beantwortet GitHub keine Anfrage ohne Anmeldung, und der Knopf erscheint nicht.
 
@@ -286,13 +302,20 @@ Der Build ist nicht mit einer Developer ID signiert und nicht notarisiert. Die S
 
 ## Offene Punkte
 
-- Endgültiger Name der App
 - Eigene Symbole für die Menüleiste
 - Eigenes App-Symbol, das Dock zeigt bisher das Symbol von Electron
 - Zähler für ungelesene Discuss-Nachrichten am Menüleisten-Symbol
 - Unterstützung mehrerer Odoo-Instanzen
 - Signierung und Notarisierung für die Verteilung außerhalb des App Store, die OdooBar auch braucht, um Updates selbst zu installieren
-- Lizenz
+- Builds für Macs mit Intel-Prozessor
+
+## Lizenz
+
+OdooBar steht unter der [Business Source License 1.1](LICENSE), die keine Open-Source-Lizenz ist. Lizenzgeber ist B42 Labs.
+
+Jede Nutzung ist erlaubt, auch im Unternehmen. Nur wer OdooBar oder ein davon abgeleitetes Werk verkauft oder Dritten gegen Entgelt anbietet, braucht dafür eine kommerzielle Lizenz von B42 Labs.
+
+Jede Version geht ein Jahr nach ihrer Veröffentlichung in die [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0) über. Verbindlich ist allein der englische Text in `LICENSE`.
 
 ## Hinweis
 
