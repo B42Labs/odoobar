@@ -13,6 +13,7 @@ OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, K
 - **Konfigurierbare App-URLs**: Jede App hat eine eigene URL, relativ zur Basis-URL oder absolut.
 - **App-Leiste im Fenster**: Am oberen Fensterrand stehen alle konfigurierten Apps zum Umschalten, davor die Knöpfe für Zurück, Vorwärts und Neu laden.
 - **Eingebetteter Browser**: Die Darstellung übernimmt Chromium über Electron.
+- **Hinweis auf neue Versionen**: Gibt es eine neuere Version von OdooBar, nennt ein Knopf in der App-Leiste sie und führt zu ihrem Download.
 
 ## Bedienung
 
@@ -45,7 +46,7 @@ Solange ein Fenster von OdooBar offen ist, hat die App ein Dock-Symbol, und ist 
 
 ### Fenster
 
-Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben. Links davon stehen die Knöpfe „Zurück“, „Vorwärts“ und „Neu laden“.
+Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben. Links davon stehen die Knöpfe „Zurück“, „Vorwärts“ und „Neu laden“. Gibt es eine neuere Version von OdooBar, erscheint links vom Zahnrad ein Knopf, der sie nennt (siehe „Aktualisierung“).
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -104,6 +105,14 @@ Die Aufnahme benennt eine Taste nach ihrer Lage auf der US-Tastatur, weil Electr
 Die Zeile einer App zeigt nach dem Speichern einen Hinweis, wenn ihr Kürzel kein gültiges Kürzel ist, wenn eine App weiter oben dasselbe Kürzel hat oder wenn macOS es abgelehnt hat. Ob ein anderes Programm ein Kürzel verwendet, erfährt OdooBar nicht. Darauf weist ein fester Text unter der App-Liste hin.
 
 „Abmelden“ steht im Abschnitt „Sitzung“ und fragt vorher nach.
+
+### Aktualisierung
+
+Die installierte App fragt beim Start und danach alle 24 Stunden bei GitHub nach dem neuesten Release von `B42Labs/odoobar`. Die Anfrage enthält nichts aus der Konfiguration und nichts von Odoo. Ist das Release neuer als die laufende Version, erscheint links vom Zahnrad ein Knopf mit der neuen Versionsnummer, etwa „Update auf 0.2.0“. Er öffnet die Release-Seite im Standardbrowser und bleibt, bis OdooBar beendet wird.
+
+Installiert wird von Hand: die `.dmg` von der Release-Seite laden, OdooBar beenden, die App im Ordner „Programme“ ersetzen und sie öffnen, wie es die Release-Seite beschreibt. Konfiguration und Anmeldung bleiben erhalten. Selbst installieren kann OdooBar ein Update nicht, denn macOS erlaubt das nur signierten Apps.
+
+Schlägt eine Abfrage fehl, etwa ohne Netzwerk, zeigt OdooBar nichts an, und die nächste Abfrage versucht es erneut. `npm start` und `make run` fragen nie. Solange das Repository privat ist, beantwortet GitHub keine Anfrage ohne Anmeldung, und der Knopf erscheint nicht.
 
 ## Konfiguration
 
@@ -204,6 +213,7 @@ OdooBar basiert auf [Electron](https://www.electronjs.org/) und bringt damit ein
 | Gemeinsamer, dauerhafter Login | Eine persistente Session-Partition (`persist:odoo`) für alle Ansichten |
 | Autostart | `app.setLoginItemSettings` |
 | Menü in der Menüleiste | `Menu`, dazu `app.dock`, das das Dock-Symbol zeigt, solange ein Fenster offen ist |
+| Hinweis auf neue Versionen | `net.fetch` gegen die Releases-API von GitHub |
 
 Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert.
 
@@ -249,6 +259,25 @@ Der Container übersetzt und paketiert, signiert wird danach auf dem Mac. Eine `
 
 `make run` legt Konfiguration und Anmeldung in `.test-profile/` im Repository ab und lässt das Profil unter `~/Library/Application Support/OdooBar` und den Start bei der Anmeldung unberührt. Weitere Argumente reicht `ARGS` durch, etwa `make run ARGS=--lang=en`.
 
+### Release
+
+Ein Release entsteht aus einem Versions-Tag. Zuerst die Version setzen und die Änderung wie jede andere über einen Pull Request zusammenführen:
+
+```sh
+npm version <x.y.z> --no-git-tag-version   # Version in package.json und package-lock.json setzen
+```
+
+Danach auf dem aktuellen `main` den Tag setzen und pushen:
+
+```sh
+git tag v<x.y.z>
+git push origin v<x.y.z>
+```
+
+Der Workflow `.github/workflows/release.yml` vergleicht Tag und Version, baut die `.dmg` auf einem macOS-Runner, führt die Unit-Tests und die Prüfungen des Bundles aus und veröffentlicht das Release mit der `.dmg`, den Installationshinweisen aus `.github/release-notes.md` und der Liste der Änderungen, die GitHub aus den zusammengeführten Pull Requests erzeugt. Passt der Tag nicht zur Version, bricht der Workflow vor dem Bauen ab. Gibt es zum Tag schon ein Release, scheitert erst der letzte Schritt, und das Release muss zuvor gelöscht werden. Von Hand auf einem Branch gestartet, baut und prüft der Workflow, ohne etwas zu veröffentlichen.
+
+Der Build ist nicht mit einer Developer ID signiert und nicht notarisiert. Die Smoke-Tests und die Tests `built app …` laufen im Workflow nicht, weil sie einen Bildschirm brauchen, der den Fokus nimmt. Vor dem Tag laufen sie lokal mit `npm test` und `npm run test:dist`.
+
 ## Offene Punkte
 
 - Endgültiger Name der App
@@ -256,7 +285,7 @@ Der Container übersetzt und paketiert, signiert wird danach auf dem Mac. Eine `
 - Eigenes App-Symbol, das Dock zeigt bisher das Symbol von Electron
 - Zähler für ungelesene Discuss-Nachrichten am Menüleisten-Symbol
 - Unterstützung mehrerer Odoo-Instanzen
-- Signierung und Notarisierung für die Verteilung außerhalb des App Store
+- Signierung und Notarisierung für die Verteilung außerhalb des App Store, die OdooBar auch braucht, um Updates selbst zu installieren
 - Lizenz
 
 ## Hinweis
