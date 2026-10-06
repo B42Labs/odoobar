@@ -64,8 +64,6 @@ Ein globales Kürzel gilt, solange OdooBar läuft, auch bei verborgenem Fenster.
 
 macOS teilt einer App nicht mit, ob ein anderes Programm oder macOS selbst ein Kürzel schon verwendet. Reagiert ein Kürzel nicht wie erwartet, ist es vermutlich anderweitig belegt, und ein anderes Kürzel hilft. Zwei Fehler erkennt OdooBar selbst: einen Text, der kein gültiges Kürzel ist, und ein Kürzel, das zwei Apps von OdooBar haben. Ein ungültiges Kürzel bleibt ohne Wirkung, ein doppeltes gilt für die erste der beiden Apps in der Konfiguration. Die Einstellungen zeigen in beiden Fällen einen Hinweis an.
 
-Solange es das Einstellungsfenster noch nicht gibt, zeigen `⌘,`, das Zahnrad in der App-Leiste und „Einstellungen …“ im Menü eines Symbols die Datei `config.json` im Finder, und den Hinweis zu einem Kürzel zeigt noch nichts an.
-
 ### Anmeldung
 
 Beim ersten Start fragt OdooBar nach der Odoo-URL und zeigt danach die normale Odoo-Anmeldeseite. Zwei-Faktor-Anmeldung und Single Sign-on funktionieren deshalb wie im Browser.
@@ -74,7 +72,21 @@ OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eige
 
 „Abmelden“ in den Einstellungen löscht das Profil mit allen Cookies, also alles, was die Odoo-Seiten gespeichert haben. Die Konfiguration bleibt erhalten. Die Sitzung auf dem Odoo-Server beendet das nicht, sie läuft dort von selbst ab. Wer sie sofort beenden will, meldet sich vorher in Odoo ab.
 
-Solange es das Einstellungsfenster noch nicht gibt, meldet nur „Abmelden“ im Benutzermenü von Odoo ab.
+### Einstellungen
+
+Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,` im Fenster und über „Einstellungen …“ im Menü eines Symbols.
+
+Änderungen wirken erst mit „Speichern“: OdooBar prüft alle Werte, schreibt `config.json`, und App-Leiste, Menüleiste, Tastenkürzel und der Start bei der Anmeldung übernehmen die neue Konfiguration ohne Neustart. Verletzt ein Wert eine Regel, nennt das Fenster den Fehler neben „Speichern“, markiert das Feld und lässt die Datei unverändert. Wer das Fenster mit ungespeicherten Änderungen schließt, etwa mit `⌘W` oder dem roten Knopf, wird gefragt, ob sie verworfen werden sollen.
+
+Apps lassen sich hinzufügen, entfernen und mit den Pfeilen nach oben oder unten verschieben. Eine neue App bekommt beim Speichern eine `id` aus ihrem Namen. Ein Klick auf das Symbol einer App öffnet ein Raster aller Lucide-Symbole, das ein Suchfeld eingrenzt. „Kein Symbol“ lässt das Feld leer.
+
+„Aufnehmen“ nimmt ein Tastenkürzel auf: danach die Tasten drücken, `Esc` beendet die Aufnahme ohne Änderung. Während der Aufnahme ruhen die globalen Kürzel von OdooBar. Ein aufgenommenes Kürzel braucht `⌘`, `⌃` oder `⌥`, außer bei einer Funktionstaste wie `F5`. Das Feld nimmt ein Kürzel auch als Text im Accelerator-Format an, etwa `Control+Alt+D`.
+
+Die Aufnahme benennt eine Taste nach ihrer Lage auf der US-Tastatur, weil Electron globale Kürzel unter macOS so registriert. Auf einer deutschen Tastatur erscheint die Taste mit der Aufschrift Z deshalb als `Y` und wirkt trotzdem dort, wo sie gedrückt wurde.
+
+Die Zeile einer App zeigt nach dem Speichern einen Hinweis, wenn ihr Kürzel kein gültiges Kürzel ist, wenn eine App weiter oben dasselbe Kürzel hat oder wenn macOS es abgelehnt hat. Ob ein anderes Programm ein Kürzel verwendet, erfährt OdooBar nicht. Darauf weist ein fester Text unter der App-Liste hin.
+
+„Abmelden“ steht im Abschnitt „Sitzung“ und fragt vorher nach.
 
 ## Konfiguration
 
@@ -146,7 +158,7 @@ Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. F
 
 `launchAtLogin` und `menuBar` sind `true` oder `false`, `apps` ist eine Liste, alle anderen Felder sind Texte. `id` und `name` dürfen nicht leer sein. `baseUrl` verwendet `http://` oder `https://` und enthält weder Benutzername noch Passwort, `?` oder `#`. Die `url` einer App ist ein Pfad, der mit `/` beginnt, oder eine vollständige Adresse mit `http://` oder `https://`.
 
-OdooBar liest die Datei beim Start. Änderungen von Hand wirken nach einem Neustart. Ist die Datei kein gültiges JSON oder verletzt sie eine dieser Regeln, nennt ein Dialog die Stelle und bietet zwei Wege an: „Beenden“ lässt die Datei unverändert, „Zurücksetzen“ benennt sie in `config.invalid-<Datum>-<Uhrzeit>.json` um und fragt erneut nach der Odoo-URL.
+OdooBar liest die Datei beim Start. Änderungen von Hand wirken nach einem Neustart. „Speichern“ im Einstellungsfenster schreibt die Datei in der Form des Beispiels neu und lässt Schlüssel weg, die OdooBar nicht kennt. Ist die Datei kein gültiges JSON oder verletzt sie eine dieser Regeln, nennt ein Dialog die Stelle und bietet zwei Wege an: „Beenden“ lässt die Datei unverändert, „Zurücksetzen“ benennt sie in `config.invalid-<Datum>-<Uhrzeit>.json` um und fragt erneut nach der Odoo-URL.
 
 Die Oberfläche ist deutsch, wenn macOS OdooBar auf Deutsch startet, und sonst englisch. Auf einem englischen System heißt die zweite App „Timesheets“.
 
