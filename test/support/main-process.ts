@@ -130,6 +130,16 @@ export async function resizeWindow(main: Page, width: number, height: number): P
 const windowOf = (urlSuffix: string) =>
   `${electron}.BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().endsWith(${JSON.stringify(urlSuffix)}))`;
 
+/**
+ * Gives the main window the 'focus' event that a click into it brings, so
+ * what OdooBar does then is testable while the screen is locked, when macOS
+ * gives no window the focus. The timeout lets the evaluation answer first, as
+ * in pressKey.
+ */
+export async function focusWindow(main: Page): Promise<void> {
+  await evaluate(main, `setTimeout(() => ${windowOf('/renderer/app-bar.html')}.emit('focus'), 0); true`);
+}
+
 export interface Place {
   readonly x: number;
   readonly y: number;
