@@ -1,6 +1,9 @@
 import { app } from 'electron';
 import { join } from 'node:path';
+import { showAppMenu } from './app-menu-ui';
 import { ConfigStore } from './config-store';
+import { Dock } from './dock';
+import { createDockUi } from './dock-ui';
 import { GlobalShortcuts } from './global-shortcuts';
 import { createGlobalShortcutsUi } from './global-shortcuts-ui';
 import { startApp } from './lifecycle';
@@ -20,7 +23,10 @@ async function start(): Promise<void> {
   // app.getLocale() is valid only after ready.
   const messages = messagesFor(pickLocale(app.getLocale()));
   const store = new ConfigStore(join(app.getPath('userData'), 'config.json'));
-  const result = await loadOrCreateConfig(store, createStartupUi(messages), messages);
+  const dock = new Dock(createDockUi());
+  // The first-start prompt has the menu as well, without the way to the settings.
+  showAppMenu(messages);
+  const result = await loadOrCreateConfig(store, createStartupUi(messages, dock), messages);
   if (!result) {
     app.quit();
     return;
@@ -28,7 +34,7 @@ async function start(): Promise<void> {
   syncLoginItem(app, result.config.launchAtLogin);
 
   const controller: WindowController = new WindowController(
-    createWindowUi(() => controller),
+    createWindowUi(() => controller, dock),
     createDesktop(() => settings.open()),
     messages,
     result.config,
@@ -36,7 +42,7 @@ async function start(): Promise<void> {
   const menuBar = new MenuBar(createMenuBarUi(controller, messages), result.config);
   const shortcuts = new GlobalShortcuts(createGlobalShortcutsUi(), (id) => controller.toggleApp(id), result.config);
   const settings: Settings = new Settings(
-    createSettingsUi(() => settings, messages),
+    createSettingsUi(() => settings, messages, dock),
     {
       getConfig: () => store.get(),
       saveConfig: (config) => store.save(config),
@@ -48,6 +54,7 @@ async function start(): Promise<void> {
     },
     messages,
   );
+  showAppMenu(messages, () => settings.open());
   store.onChange((config) => {
     controller.setConfig(config);
     menuBar.setConfig(config);

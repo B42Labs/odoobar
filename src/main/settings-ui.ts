@@ -9,6 +9,8 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { Dock } from './dock';
+import { showInFront } from './dock-ui';
 import { FALLBACK_ICON } from './menu-bar';
 import { ICONS, iconNames } from './menu-bar-ui';
 import type { Messages } from './messages';
@@ -20,7 +22,7 @@ import { shortcutFor } from './shortcuts';
  * configuration. It holds no decisions, settings.ts makes them and hears about
  * clicks and keys through `events`.
  */
-export function createSettingsUi(events: () => Settings, messages: Messages): SettingsUi {
+export function createSettingsUi(events: () => Settings, messages: Messages, dock: Dock): SettingsUi {
   // loadFile would encode characters such as % or [ differently, so the window loads this exact URL.
   const pageUrl = pathToFileURL(join(__dirname, '../renderer/settings.html')).href;
   const iconsUrl = pathToFileURL(ICONS).href + '/';
@@ -87,21 +89,12 @@ export function createSettingsUi(events: () => Settings, messages: Messages): Se
     created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     created.webContents.on('before-input-event', (event, input) => {
       if (events().keyPressed(input)) {
-        // A recording takes every key, so neither the page nor Electron's default menu sees it.
+        // A recording takes every key, so neither the page nor the app menu sees it.
         event.preventDefault();
       } else if (shortcutFor(input)?.kind === 'hide') {
         // ⌘W closes the settings as it hides the main window.
         event.preventDefault();
         created.close();
-      } else if (
-        input.type === 'keyDown' &&
-        input.meta &&
-        !input.control &&
-        !input.alt &&
-        input.key.toLowerCase() === 'r'
-      ) {
-        // The default menu would reload the page on ⌘R and ⇧⌘R and drop the unsaved edits without asking.
-        event.preventDefault();
       }
     });
     // A click into another program ends a recording.
@@ -113,14 +106,11 @@ export function createSettingsUi(events: () => Settings, messages: Messages): Se
       events().requestClose();
     });
     created.on('closed', () => {
+      dock.closed('settings');
       window = undefined;
       events().closed();
     });
-    created.once('ready-to-show', () => {
-      created.show();
-      // Without a Dock icon, the window would open behind other apps.
-      app.focus({ steal: true });
-    });
+    created.once('ready-to-show', () => showInFront(dock, 'settings', created));
     created.loadURL(pageUrl).catch((error: unknown) => {
       // Closed while loading.
       if (created.isDestroyed()) return;
@@ -145,9 +135,7 @@ export function createSettingsUi(events: () => Settings, messages: Messages): Se
   return {
     showWindow() {
       if (!window) return create();
-      // show() also brings a minimized window back, and one that app.hide() hid.
-      window.show();
-      app.focus({ steal: true });
+      showInFront(dock, 'settings', window);
     },
     closeWindow() {
       window?.destroy();

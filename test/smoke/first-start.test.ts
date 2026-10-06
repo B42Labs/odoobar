@@ -195,7 +195,6 @@ test('a stored configuration starts without a prompt and stays unchanged', macOn
   const file = writeConfig(userDataDir, storedConfig);
   const app = launch(electronBinary, [projectRoot, '--remote-debugging-port=0'], userDataDir);
   try {
-    await expectRunningAgentApp(app);
     const port = await devtoolsPort(userDataDir, 30_000);
     await waitForBar(port);
     assert.deepEqual((await listPages(port)).filter((page) => page.url.endsWith('/renderer/first-start.html')), []);

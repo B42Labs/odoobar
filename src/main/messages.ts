@@ -23,6 +23,33 @@ export interface Messages {
     readonly loadFailed: string;
   };
   readonly menuBar: { readonly reload: string; readonly settings: string };
+  readonly appMenu: {
+    readonly about: string;
+    readonly hide: string;
+    readonly hideOthers: string;
+    readonly showAll: string;
+    readonly quit: string;
+    readonly edit: string;
+    readonly undo: string;
+    readonly redo: string;
+    readonly cut: string;
+    readonly copy: string;
+    readonly paste: string;
+    readonly pasteAndMatchStyle: string;
+    readonly delete: string;
+    readonly selectAll: string;
+    readonly view: string;
+    readonly actualSize: string;
+    readonly zoomIn: string;
+    readonly zoomOut: string;
+    readonly developerTools: string;
+    readonly window: string;
+    readonly minimize: string;
+    readonly zoom: string;
+    readonly close: string;
+    readonly bringAllToFront: string;
+  };
+  readonly about: { readonly version: string; readonly ok: string; readonly repository: string };
   readonly settings: {
     readonly title: string;
     readonly general: string;
@@ -103,6 +130,33 @@ const en: Messages = {
     loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
   },
   menuBar: { reload: 'Reload', settings: 'Settings…' },
+  appMenu: {
+    about: 'About OdooBar',
+    hide: 'Hide OdooBar',
+    hideOthers: 'Hide Others',
+    showAll: 'Show All',
+    quit: 'Quit OdooBar',
+    edit: 'Edit',
+    undo: 'Undo',
+    redo: 'Redo',
+    cut: 'Cut',
+    copy: 'Copy',
+    paste: 'Paste',
+    pasteAndMatchStyle: 'Paste and Match Style',
+    delete: 'Delete',
+    selectAll: 'Select All',
+    view: 'View',
+    actualSize: 'Actual Size',
+    zoomIn: 'Zoom In',
+    zoomOut: 'Zoom Out',
+    developerTools: 'Toggle Developer Tools',
+    window: 'Window',
+    minimize: 'Minimize',
+    zoom: 'Zoom',
+    close: 'Close Window',
+    bringAllToFront: 'Bring All to Front',
+  },
+  about: { version: 'Version {version}', ok: 'OK', repository: 'Open on GitHub' },
   settings: {
     title: 'OdooBar Settings',
     general: 'General',
@@ -190,6 +244,33 @@ const de: Messages = {
     loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
   },
   menuBar: { reload: 'Neu laden', settings: 'Einstellungen …' },
+  appMenu: {
+    about: 'Über OdooBar',
+    hide: 'OdooBar ausblenden',
+    hideOthers: 'Andere ausblenden',
+    showAll: 'Alle einblenden',
+    quit: 'OdooBar beenden',
+    edit: 'Bearbeiten',
+    undo: 'Widerrufen',
+    redo: 'Wiederholen',
+    cut: 'Ausschneiden',
+    copy: 'Kopieren',
+    paste: 'Einsetzen',
+    pasteAndMatchStyle: 'Einsetzen und Stil anpassen',
+    delete: 'Löschen',
+    selectAll: 'Alles auswählen',
+    view: 'Darstellung',
+    actualSize: 'Originalgröße',
+    zoomIn: 'Vergrößern',
+    zoomOut: 'Verkleinern',
+    developerTools: 'Entwicklertools ein-/ausblenden',
+    window: 'Fenster',
+    minimize: 'Im Dock ablegen',
+    zoom: 'Zoomen',
+    close: 'Fenster schließen',
+    bringAllToFront: 'Alle nach vorne bringen',
+  },
+  about: { version: 'Version {version}', ok: 'OK', repository: 'Auf GitHub öffnen' },
   settings: {
     title: 'OdooBar-Einstellungen',
     general: 'Allgemein',

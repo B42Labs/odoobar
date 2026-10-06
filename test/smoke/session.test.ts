@@ -1,7 +1,7 @@
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   macOnly,
@@ -108,6 +108,9 @@ async function withProfile(run: (profile: Profile) => Promise<void>): Promise<vo
         assert.ok(app);
         app.kill('SIGTERM');
         assert.equal(await waitForExit(app, 10_000), 0);
+        // Chromium leaves the file with its DevTools port behind, and the next
+        // start would read that port until it has written its own.
+        rmSync(join(userDataDir, 'DevToolsActivePort'), { force: true });
       },
     });
   } finally {
