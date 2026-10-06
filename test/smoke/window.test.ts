@@ -44,7 +44,7 @@ import {
   resizeWindow,
   showUpdate,
 } from '../support/main-process';
-import { startOdooServer, type OdooServer, type OdooServerOptions } from '../support/odoo-server';
+import { attendanceSettled, startOdooServer, type OdooServer, type OdooServerOptions } from '../support/odoo-server';
 
 let electronBinary = '';
 
@@ -648,41 +648,50 @@ test('the app bar does not navigate to another page or open a window', macOnly, 
 });
 
 test('another page in the window cannot use the app bar channels', macOnly, async () => {
-  await withWindow(twoApps, async ({ server, userDataDir, main, port, bar }) => {
-    await waitForPage(port, '/odoo/crm', 5_000);
-    // An update on offer, whose button would open the release page.
-    await captureController(main);
-    await eventually(async () => (await evaluate(main, 'globalThis.controller !== undefined')) === true, 'the controller');
-    await showUpdate(main, { version: '9.9.9', url: 'https://github.com/B42Labs/odoobar/releases/tag/v9.9.9' });
-    // Counts the messages that reach the main process, whether refused or not.
-    await evaluate(
-      main,
-      `globalThis.barMessages = 0;
-      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload', 'app-bar:update', 'app-bar:attendance'])
-        process.mainModule.require('electron').ipcMain.on(channel, () => globalThis.barMessages++);
-      true`,
-    );
-    // A page with the elements of the app bar gets its preload script as well.
-    const other = join(userDataDir, 'other.html');
-    writeFileSync(
-      other,
-      `<button id="back"></button><button id="forward"></button><button id="reload"></button><button id="attendance"></button>
+  await withWindow(
+    twoApps,
+    async ({ server, userDataDir, main, port, bar }) => {
+      await waitForPage(port, '/odoo/crm', 5_000);
+      // An update on offer, whose button would open the release page.
+      await captureController(main);
+      await eventually(async () => (await evaluate(main, 'globalThis.controller !== undefined')) === true, 'the controller');
+      await showUpdate(main, { version: '9.9.9', url: 'https://github.com/B42Labs/odoobar/releases/tag/v9.9.9' });
+      // The attendance button shows, so a click that got through would ask Odoo and check in.
+      await eventually(async () => (await readBar(bar)).attendance !== undefined, 'the attendance button');
+      await attendanceSettled(server);
+      server.attendanceRequests.length = 0;
+      // Counts the messages that reach the main process, whether refused or not.
+      await evaluate(
+        main,
+        `globalThis.barMessages = 0;
+        for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload', 'app-bar:update', 'app-bar:attendance'])
+          process.mainModule.require('electron').ipcMain.on(channel, () => globalThis.barMessages++);
+        true`,
+      );
+      // A page with the elements of the app bar gets its preload script as well.
+      const other = join(userDataDir, 'other.html');
+      writeFileSync(
+        other,
+        `<button id="back"></button><button id="forward"></button><button id="reload"></button><button id="attendance"></button>
 <div id="apps"></div><button id="update"></button><button id="settings"></button>
 <div id="notice"><p id="notice-text"></p><button id="retry"></button></div>
 <script>addEventListener('load', () => {
   for (const button of document.querySelectorAll('button')) button.click();
 });</script>`,
-    );
-    // A page that the main process loads gets past will-navigate.
-    await navigate(bar, pathToFileURL(other).href);
-    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 7, 'every message to arrive');
-    // Time for a reload of CRM, which must not come.
-    await sleep(500);
-    assert.deepEqual(await desktopCalls(main), []);
-    assert.deepEqual(server.requests, ['/odoo/crm']);
-    assert.equal(await evaluate(bar, `document.getElementById('apps').childElementCount`), 0);
-    assert.equal((await listPages(port)).length, 2);
-  });
+      );
+      // A page that the main process loads gets past will-navigate.
+      await navigate(bar, pathToFileURL(other).href);
+      await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 7, 'every message to arrive');
+      // Time for a reload of CRM or a check-in, which must not come.
+      await sleep(500);
+      assert.deepEqual(await desktopCalls(main), []);
+      assert.deepEqual(server.requests, ['/odoo/crm']);
+      assert.deepEqual(server.attendanceRequests, []);
+      assert.equal(await evaluate(bar, `document.getElementById('apps').childElementCount`), 0);
+      assert.equal((await listPages(port)).length, 2);
+    },
+    { attendance: {} },
+  );
 });
 
 test('an empty app list shows a notice and no app', macOnly, async () => {
