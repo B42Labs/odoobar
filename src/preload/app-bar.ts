@@ -13,6 +13,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const reload = byId<HTMLButtonElement>('reload');
   const apps = byId('apps');
   const settings = byId<HTMLButtonElement>('settings');
+  const update = byId<HTMLButtonElement>('update');
   const notice = byId('notice');
   const noticeText = byId('notice-text');
   const retry = byId<HTMLButtonElement>('retry');
@@ -40,6 +41,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         return button;
       }),
     );
+    update.hidden = state.update === undefined;
+    update.textContent = state.update?.label ?? '';
+    update.title = state.update?.hint ?? '';
     name(settings, state.texts.settings);
     notice.hidden = state.notice === undefined;
     noticeText.textContent = state.notice?.text ?? '';
@@ -53,6 +57,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   forward.addEventListener('click', () => ipcRenderer.send('app-bar:go', 'forward'));
   reload.addEventListener('click', () => ipcRenderer.send('app-bar:reload'));
   retry.addEventListener('click', () => ipcRenderer.send('app-bar:reload'));
+  update.addEventListener('click', () => ipcRenderer.send('app-bar:update'));
   ipcRenderer.on('app-bar:state', (_event, state: BarState) => render(state));
   render(await ipcRenderer.invoke('app-bar:init'));
 });

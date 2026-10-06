@@ -102,6 +102,11 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     events().reloadActive();
     focusShown();
   });
+  ipcMain.on('app-bar:update', (event) => {
+    if (!fromBar(event)) return;
+    events().openUpdate();
+    focusShown();
+  });
 
   const layout = () => {
     if (!window) return;
