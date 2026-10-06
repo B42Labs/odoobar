@@ -1,11 +1,24 @@
 import { app, Menu, nativeImage, Tray, type NativeImage } from 'electron';
+import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { FALLBACK_ICON, isIconName, type MenuBarUi } from './menu-bar';
 import type { Messages } from './messages';
 import type { WindowController } from './window';
 
 /** The images that scripts/render-icons.ts writes. */
-const ICONS = join(__dirname, '../icons');
+export const ICONS = join(__dirname, '../icons');
+
+/**
+ * Every icon name of the build, sorted. An error of readdirSync, such as
+ * ENOENT, reaches the caller: only a broken build lacks the directory, and
+ * test/unit/icons.test.ts checks it.
+ */
+export function iconNames(): string[] {
+  return readdirSync(ICONS)
+    .filter((file) => file.endsWith('.png') && !file.endsWith('@2x.png'))
+    .map((file) => file.slice(0, -'.png'.length))
+    .sort();
+}
 
 // Electron removes an icon from the menu bar when its Tray is garbage
 // collected, so the module holds every Tray until showItems replaces it.
