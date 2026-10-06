@@ -75,9 +75,6 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   ipcMain.on('app-bar:settings', (event) => {
     if (fromBar(event)) events().openSettings();
   });
-  ipcMain.on('app-bar:retry', (event) => {
-    if (fromBar(event)) events().reloadActive();
-  });
 
   const watchKeys = (contents: WebContents) => {
     contents.on('before-input-event', (event, input) => {
@@ -93,6 +90,18 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   const focusShown = () => {
     (views.get(shown ?? '')?.webContents ?? window?.webContents)?.focus();
   };
+
+  // A click on one of these buttons moved the keys to the app bar. They go back to the page it acts on.
+  ipcMain.on('app-bar:go', (event, direction: unknown) => {
+    if (!fromBar(event) || (direction !== 'back' && direction !== 'forward')) return;
+    events().go(direction);
+    focusShown();
+  });
+  ipcMain.on('app-bar:reload', (event) => {
+    if (!fromBar(event)) return;
+    events().reloadActive();
+    focusShown();
+  });
 
   const layout = () => {
     if (!window) return;
@@ -163,7 +172,20 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
         event.preventDefault();
         events().openLink(id, event.url);
       });
+      // Odoo adds to the history on most clicks, and the answers of canGo mostly stay as they are.
+      let reported = { back: false, forward: false };
+      const reportHistory = () => {
+        const history = contents.navigationHistory;
+        const next = { back: history.canGoBack(), forward: history.canGoForward() };
+        if (next.back === reported.back && next.forward === reported.forward) return;
+        reported = next;
+        events().historyChanged(id);
+      };
+      contents.on('did-frame-navigate', reportHistory);
+      contents.on('did-navigate-in-page', reportHistory);
       contents.on('did-fail-load', (_event, _code, description, failedUrl, isMainFrame) => {
+        // A page that did not load takes a place in the history as well.
+        reportHistory();
         if (isMainFrame) events().loadFailed(id, failedUrl, description);
       });
       contents.once('destroyed', () => {
@@ -189,6 +211,16 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     },
     reloadView(id) {
       views.get(id)?.webContents.reload();
+    },
+    canGo(id, direction) {
+      const history = views.get(id)?.webContents.navigationHistory;
+      if (!history) return false;
+      return direction === 'back' ? history.canGoBack() : history.canGoForward();
+    },
+    go(id, direction) {
+      const history = views.get(id)?.webContents.navigationHistory;
+      if (direction === 'back') history?.goBack();
+      else history?.goForward();
     },
     showView(id) {
       shown = id;

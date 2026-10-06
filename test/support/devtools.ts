@@ -81,10 +81,15 @@ function send(page: Page, method: string, params: object): Promise<unknown> {
   });
 }
 
-/** Runs `expression` in the page and returns its value. Rejects when the page closes first. */
-export async function evaluate(page: Page, expression: string): Promise<unknown> {
+/**
+ * Runs `expression` in the page and returns its value. Rejects when the page
+ * closes first. With `userGesture`, the page takes it for an action of the
+ * user. Chromium steps over a history entry that a page left without one.
+ */
+export async function evaluate(page: Page, expression: string, userGesture = false): Promise<unknown> {
   const { result, exceptionDetails: failure } = (await send(page, 'Runtime.evaluate', {
     expression,
+    userGesture,
     awaitPromise: true,
     returnByValue: true,
   })) as {
@@ -130,6 +135,8 @@ export async function waitForPrompt(userDataDir: string): Promise<{ port: number
 
 export interface Bar {
   readonly apps: { readonly id: string; readonly name: string; readonly active: boolean }[];
+  /** Which of the buttons that go back, go forward, and reload are not greyed out. */
+  readonly nav: { readonly back: boolean; readonly forward: boolean; readonly reload: boolean };
   /** The text below the bar, or undefined while a view covers it. */
   readonly notice: string | undefined;
   readonly retry: boolean;
@@ -146,6 +153,11 @@ export async function readBar(page: Page): Promise<Bar> {
         name: button.textContent,
         active: button.getAttribute('aria-current') === 'true',
       })),
+      nav: {
+        back: !document.getElementById('back').disabled,
+        forward: !document.getElementById('forward').disabled,
+        reload: !document.getElementById('reload').disabled,
+      },
       notice: document.getElementById('notice').hidden ? undefined : document.getElementById('notice-text').textContent,
       retry: !document.getElementById('notice').hidden && !document.getElementById('retry').hidden,
       visible: document.visibilityState === 'visible',

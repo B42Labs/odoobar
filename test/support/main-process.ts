@@ -109,6 +109,14 @@ export function pressCommand(main: Page, urlSuffix: string, key: string): Promis
   return pressKey(main, urlSuffix, key, ['meta']);
 }
 
+/** Moves the keys to the page whose address ends in `urlSuffix`, as a click into it does. */
+export async function focusPage(main: Page, urlSuffix: string): Promise<void> {
+  await evaluate(
+    main,
+    `${electron}.webContents.getAllWebContents().find((candidate) => candidate.getURL().endsWith(${JSON.stringify(urlSuffix)})).focus(); true`,
+  );
+}
+
 /** Closes the window the way its red button does. */
 export async function closeWindow(main: Page): Promise<void> {
   await evaluate(main, `${electron}.BrowserWindow.getAllWindows()[0].close(); true`);

@@ -11,7 +11,7 @@ OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, K
 - **Einmal anmelden**: Alle Apps teilen sich eine Sitzung. Der Login bleibt über Neustarts hinweg erhalten.
 - **Konfigurierbare Odoo-URL**: Die Basis-URL der Odoo-Instanz wird einmal eingestellt.
 - **Konfigurierbare App-URLs**: Jede App hat eine eigene URL, relativ zur Basis-URL oder absolut.
-- **App-Leiste im Fenster**: Am oberen Fensterrand stehen alle konfigurierten Apps zum Umschalten.
+- **App-Leiste im Fenster**: Am oberen Fensterrand stehen alle konfigurierten Apps zum Umschalten, davor die Knöpfe für Zurück, Vorwärts und Neu laden.
 - **Eingebetteter Browser**: Die Darstellung übernimmt Chromium über Electron.
 
 ## Bedienung
@@ -45,11 +45,11 @@ Solange ein Fenster von OdooBar offen ist, hat die App ein Dock-Symbol, und ist 
 
 ### Fenster
 
-Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben.
+Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben. Links davon stehen die Knöpfe „Zurück“, „Vorwärts“ und „Neu laden“.
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  Discuss   CRM   Kalender   Projekte   Kontakte      ⚙   │
+│  ‹  ›  ↻   Discuss   CRM   Kalender   Projekte       ⚙   │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │                  Odoo-Ansicht der aktiven App            │
@@ -58,6 +58,8 @@ Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfiguri
 ```
 
 Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss und wieder zurück wechselt, landet im selben Datensatz wie zuvor.
+
+Die Pfeile blättern durch die Seiten, die die aktive App gezeigt hat, und der Knopf daneben lädt ihre Seite neu, wie `⌘R`. Jede App hat ihren eigenen Verlauf. Ein Pfeil ist ausgegraut, solange es in seiner Richtung keine Seite gibt.
 
 Ein Klick auf die bereits aktive App in der Leiste lädt wieder ihre Startadresse. Kann eine Seite nicht geladen werden, stehen Adresse und Grund unter der Leiste, und „Erneut versuchen“ oder `⌘R` lädt sie neu.
 

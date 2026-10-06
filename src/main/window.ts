@@ -3,13 +3,24 @@ import { fill, type Messages } from './messages';
 import { linkTarget } from './navigation';
 import type { Shortcut } from './shortcuts';
 
+/** A step through the pages that a view has shown. */
+export type Direction = 'back' | 'forward';
+
 /** What the app bar page shows. The main process sends it whole after every change. */
 export interface BarState {
   readonly apps: readonly { readonly id: string; readonly name: string }[];
   readonly activeId: string | undefined;
+  /** Which of the buttons that go back, go forward, and reload act on the active app. The others are greyed out. */
+  readonly nav: { readonly back: boolean; readonly forward: boolean; readonly reload: boolean };
   /** Shown below the bar while no view is. `retry` adds the button that reloads the active app. */
   readonly notice: { readonly text: string; readonly retry: boolean } | undefined;
-  readonly texts: { readonly settings: string; readonly retry: string };
+  readonly texts: {
+    readonly back: string;
+    readonly forward: string;
+    readonly reload: string;
+    readonly settings: string;
+    readonly retry: string;
+  };
 }
 
 /** A place on the screens, in the points that Electron counts across all of them. */
@@ -29,6 +40,10 @@ export interface WindowUi {
   /** Loads `url` in the existing view of an app. */
   loadView(id: string, url: string): void;
   reloadView(id: string): void;
+  /** Whether the view of an app has shown a page that lies one step in this direction. False for an app without a view. */
+  canGo(id: string, direction: Direction): boolean;
+  /** Takes the view of an app one step through the pages it has shown. */
+  go(id: string, direction: Direction): void;
   /** Shows the view of this app and hides every other one. undefined hides all, so the notice shows. */
   showView(id: string | undefined): void;
   renderBar(state: BarState): void;
@@ -152,6 +167,23 @@ export class WindowController {
     if (this.active !== undefined) this.reloadApp(this.active);
   }
 
+  /**
+   * Takes the active app one step through the pages it has shown, as the
+   * arrows in the app bar do. Without a page in that direction, nothing
+   * happens. A notice makes way for the page the step leads to.
+   */
+  go(direction: Direction): void {
+    const id = this.active;
+    if (id === undefined || !this.open.has(id) || !this.ui.canGo(id, direction)) return;
+    this.ui.go(id, direction);
+    if (this.failures.delete(id)) this.present();
+  }
+
+  /** The view of an app gives other answers to canGo than before, so the arrows in the app bar change. */
+  historyChanged(id: string): void {
+    if (id === this.active) this.ui.renderBar(this.barState());
+  }
+
   openSettings(): void {
     this.desktop.openSettings();
   }
@@ -267,11 +299,23 @@ export class WindowController {
       const { url, reason } = failure;
       notice = { text: fill(appBar.loadFailed, { name: app.name, url, reason }), retry: true };
     }
+    const viewId = app && this.open.has(app.id) ? app.id : undefined;
     return {
       apps: this.apps.map(({ id, name }) => ({ id, name })),
       activeId: this.active,
+      nav: {
+        back: viewId !== undefined && this.ui.canGo(viewId, 'back'),
+        forward: viewId !== undefined && this.ui.canGo(viewId, 'forward'),
+        reload: viewId !== undefined,
+      },
       notice,
-      texts: { settings: appBar.settings, retry: appBar.retry },
+      texts: {
+        back: appBar.back,
+        forward: appBar.forward,
+        reload: appBar.reload,
+        settings: appBar.settings,
+        retry: appBar.retry,
+      },
     };
   }
 
