@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src file:" />
+    <title>OdooBar</title>
+    <style>
+      :root { color-scheme: light dark; font: 13px system-ui; }
+      body { margin: 0; padding: 20px 24px 0; }
+      [hidden] { display: none !important; }
+      h2 { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+      section { margin-bottom: 24px; }
+      p { margin: 0; }
+      button { font: inherit; white-space: nowrap; }
+      input[type="text"], input[type="search"] { box-sizing: border-box; width: 100%; min-width: 0; font: inherit; padding: 4px 6px; }
+      [aria-invalid="true"] { outline: 2px solid #d70015; outline-offset: 1px; }
+      #error, #sign-out-error { color: #d70015; }
+      #base-url-label { display: block; margin-bottom: 6px; }
+      .check { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+      .app-table { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.2fr) auto auto auto auto auto; column-gap: 6px; }
+      #app-columns, #apps, .app { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
+      #app-columns { color: GrayText; font-size: 11px; margin-bottom: 4px; align-items: end; }
+      #column-shortcut { grid-column: 4 / 6; }
+      #column-menu-bar { grid-column: 6 / 7; max-width: 64px; text-align: center; }
+      .app { align-items: center; row-gap: 2px; padding: 3px 0; }
+      .app .menu-bar { justify-self: center; }
+      button.icon { width: 32px; height: 26px; padding: 0; display: grid; place-items: center; }
+      .notice { grid-column: 2 / -1; color: #c45a00; }
+      .notice:empty { display: none; }
+      #add { margin-top: 8px; }
+      #shortcut-hint, #sign-out-hint { color: GrayText; }
+      #shortcut-hint { margin-top: 10px; }
+      .session-row { display: flex; align-items: center; gap: 12px; }
+      #sign-out-error { margin-top: 6px; }
+      footer { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 0 16px; background: Canvas; border-top: 1px solid color-mix(in srgb, CanvasText 15%, transparent); }
+      #error { flex: 1; }
+      #save { padding: 4px 18px; }
+      dialog { box-sizing: border-box; width: 560px; max-width: calc(100vw - 48px); padding: 16px; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); border-radius: 10px; }
+      .picker-bar { display: flex; gap: 8px; }
+      #icon-grid { display: grid; grid-template-columns: repeat(auto-fill, 36px); gap: 4px; height: 300px; overflow-y: auto; margin-top: 10px; align-content: start; }
+      #icon-grid button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 6px; background: transparent; }
+      #icon-grid button:hover { background: color-mix(in srgb, CanvasText 10%, transparent); }
+      .icon-image { width: 18px; height: 18px; }
+      /* The icons are black on transparent. */
+      @media (prefers-color-scheme: dark) { .icon-image { filter: invert(1); } }
+    </style>
+  </head>
+  <body hidden>
+    <section>
+      <h2 id="general-title"></h2>
+      <label id="base-url-label" for="base-url"></label>
+      <input id="base-url" type="text" data-path="baseUrl" autocomplete="off" spellcheck="false" />
+      <label class="check">
+        <input id="launch-at-login" type="checkbox" data-path="launchAtLogin" />
+        <span id="launch-at-login-label"></span>
+      </label>
+    </section>
+    <section>
+      <h2 id="apps-title"></h2>
+      <div class="app-table">
+        <div id="app-columns">
+          <span id="column-icon"></span>
+          <span id="column-name"></span>
+          <span id="column-url"></span>
+          <span id="column-shortcut"></span>
+          <span id="column-menu-bar"></span>
+        </div>
+        <div id="apps"></div>
+      </div>
+      <button id="add" type="button"></button>
+      <p id="shortcut-hint"></p>
+    </section>
+    <section>
+      <h2 id="session-title"></h2>
+      <div class="session-row">
+        <button id="sign-out" type="button"></button>
+        <p id="sign-out-hint"></p>
+      </div>
+      <p id="sign-out-error" role="alert"></p>
+    </section>
+    <footer>
+      <p id="error" role="alert"></p>
+      <button id="save" type="button" disabled></button>
+    </footer>
+    <dialog id="icon-picker" aria-labelledby="picker-title">
+      <h2 id="picker-title"></h2>
+      <div class="picker-bar">
+        <input id="icon-search" type="search" autocomplete="off" spellcheck="false" />
+        <button id="no-icon" type="button"></button>
+      </div>
+      <div id="icon-grid"></div>
+    </dialog>
+  </body>
+</html>
