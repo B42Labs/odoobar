@@ -1,11 +1,11 @@
 /**
- * The part of Electron's `app` that syncLoginItem uses. This module never
- * imports electron, so its unit tests run in plain Node.js.
+ * The part of Electron's `app` that this module uses. It never imports
+ * electron, so its unit tests run in plain Node.js.
  */
 export interface LoginItemApp {
   readonly isPackaged: boolean;
   readonly commandLine: { hasSwitch(name: string): boolean };
-  getLoginItemSettings(): { openAtLogin: boolean };
+  getLoginItemSettings(): { openAtLogin: boolean; wasOpenedAtLogin: boolean };
   setLoginItemSettings(settings: { openAtLogin: boolean }): void;
 }
 
@@ -18,4 +18,12 @@ export function syncLoginItem(app: LoginItemApp, launchAtLogin: boolean): void {
   if (!app.isPackaged || app.commandLine.hasSwitch('user-data-dir')) return;
   if (app.getLoginItemSettings().openAtLogin === launchAtLogin) return;
   app.setLoginItemSettings({ openAtLogin: launchAtLogin });
+}
+
+/**
+ * Whether macOS started OdooBar at login, as the login item makes it do.
+ * Every other start comes from the user.
+ */
+export function startedAtLogin(app: LoginItemApp): boolean {
+  return app.getLoginItemSettings().wasOpenedAtLogin;
 }

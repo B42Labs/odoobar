@@ -31,7 +31,6 @@ import {
   refuseShortcut,
   saveConfig,
   shortcutStates,
-  windowCount,
 } from '../support/main-process';
 import { startOdooServer, type OdooServer } from '../support/odoo-server';
 
@@ -220,14 +219,15 @@ test('a shortcut that the system refuses is reported apart from a duplicate, and
   });
 });
 
-test('a later start registers the stored shortcuts and opens no window', macOnly, async () => {
+test('a later start registers the stored shortcuts', macOnly, async () => {
+  const server = await startOdooServer();
   const userDataDir = makeUserDataDir();
   let app: ChildProcess | undefined;
   try {
     writeConfig(
       userDataDir,
       JSON.stringify({
-        baseUrl: 'https://odoo.example.com',
+        baseUrl: server.baseUrl,
         apps: [
           { id: 'home', name: 'Home', url: '/odoo', shortcut: HOME },
           { id: 'timesheets', name: 'Timesheets', url: '/odoo/timesheets' },
@@ -239,9 +239,9 @@ test('a later start registers the stored shortcuts and opens no window', macOnly
     const { main } = inspected;
     await eventually(() => holdsShortcut(main, HOME), 'the stored shortcut to be registered');
     assert.equal(await holdsShortcut(main, TIMESHEETS), false);
-    assert.equal(await windowCount(main), 0);
   } finally {
     if (app) await stop(app);
+    await server.close();
     removeUserDataDir(userDataDir);
   }
 });

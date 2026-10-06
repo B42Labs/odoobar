@@ -25,6 +25,7 @@ import {
   eventually,
   listPages,
   navigate,
+  waitForBar,
   waitForPrompt,
   type Page,
 } from '../support/devtools';
@@ -195,7 +196,9 @@ test('a stored configuration starts without a prompt and stays unchanged', macOn
   const app = launch(electronBinary, [projectRoot, '--remote-debugging-port=0'], userDataDir);
   try {
     await expectRunningAgentApp(app);
-    assert.deepEqual(await listPages(await devtoolsPort(userDataDir, 30_000)), []);
+    const port = await devtoolsPort(userDataDir, 30_000);
+    await waitForBar(port);
+    assert.deepEqual((await listPages(port)).filter((page) => page.url.endsWith('/renderer/first-start.html')), []);
     assert.equal(readFileSync(file, 'utf8'), storedConfig);
   } finally {
     await stop(app);

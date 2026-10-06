@@ -28,7 +28,7 @@ Für jede App mit aktivierter Option „In Menüleiste anzeigen“ erscheint ein
 
 Die Symbole stehen in der Reihenfolge der Konfiguration, die erste App ganz links, und der Tooltip nennt die App. Liegt das Fenster hinter einem anderen Programm, holt der Klick es nach vorn. „Neu laden“ lädt die App dieses Symbols neu, auch wenn das Fenster verborgen ist oder eine andere App zeigt. Solange die App noch nicht geöffnet wurde, ist der Eintrag ausgegraut. Hat keine App die Option, zeigt OdooBar kein Symbol, und das Fenster öffnet nur ein erneuter Start von OdooBar.
 
-Die App hat kein Dock-Symbol und startet auf Wunsch automatisch bei der Anmeldung am Mac.
+Die App hat kein Dock-Symbol und startet auf Wunsch automatisch bei der Anmeldung am Mac. Dann bleibt das Fenster verborgen, bis ein Symbol, ein Tastenkürzel oder ein erneuter Start es öffnet.
 
 ### Fenster
 
@@ -48,7 +48,7 @@ Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss u
 
 Ein Klick auf die bereits aktive App in der Leiste lädt wieder ihre Startadresse. Kann eine Seite nicht geladen werden, stehen Adresse und Grund unter der Leiste, und „Erneut versuchen“ oder `⌘R` lädt sie neu.
 
-Nach dem ersten Start öffnet sich das Fenster von selbst. Bei jedem späteren Start bleibt es verborgen. Wer OdooBar startet, während es schon läuft, holt das Fenster nach vorn. Der rote Schließen-Knopf blendet das Fenster aus, genau wie `⌘W`.
+Jeder Start von OdooBar öffnet das Fenster. Nur wenn macOS OdooBar bei der Anmeldung startet, bleibt es verborgen. Wer OdooBar startet, während es schon läuft, holt das Fenster nach vorn. Der rote Schließen-Knopf blendet das Fenster aus, genau wie `⌘W`.
 
 ### Tastenkürzel
 
