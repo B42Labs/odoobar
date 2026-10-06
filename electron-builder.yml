@@ -4,6 +4,8 @@ directories:
   output: dist
 files:
   - out/src/**
+extraResources:
+  - LICENSE
 mac:
   category: public.app-category.productivity
   minimumSystemVersion: "13.0"
