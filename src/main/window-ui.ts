@@ -217,6 +217,23 @@ export function createWindowUi(events: () => WindowController): WindowUi {
   };
 }
 
+/**
+ * Fetches an address with the cookies of the Odoo pages and returns the JSON
+ * document of the answer. An answer that holds none, such as the login page
+ * that Odoo redirects to or an error page, gives undefined. An address that
+ * does not answer within ten seconds fails.
+ */
+export async function fetchOdooJson(url: string): Promise<unknown> {
+  const response = await session.fromPartition(PARTITION).fetch(url, {
+    headers: { accept: 'application/json' },
+    // Odoo before 19 lets a browser keep its menus for a year, which would outlast a new app and a change of the user.
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) return undefined;
+  return response.json();
+}
+
 /** The Electron side of Desktop. main.ts hands in the way to the settings window. */
 export function createDesktop(openSettings: () => void): Desktop {
   return {

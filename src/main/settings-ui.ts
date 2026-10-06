@@ -12,7 +12,7 @@ import { pathToFileURL } from 'node:url';
 import { FALLBACK_ICON } from './menu-bar';
 import { ICONS, iconNames } from './menu-bar-ui';
 import type { Messages } from './messages';
-import type { SaveResult, Settings, SettingsInit, SettingsUi, SignOutResult } from './settings';
+import type { OdooAppsResult, SaveResult, Settings, SettingsInit, SettingsUi, SignOutResult } from './settings';
 import { shortcutFor } from './shortcuts';
 
 /**
@@ -54,6 +54,10 @@ export function createSettingsUi(events: () => Settings, messages: Messages): Se
   ipcMain.handle('settings:sign-out', (event): Promise<SignOutResult> => {
     if (!fromPage(event)) throw new Error('unexpected sender');
     return events().signOut();
+  });
+  ipcMain.handle('settings:odoo-apps', (event): Promise<OdooAppsResult> => {
+    if (!fromPage(event)) throw new Error('unexpected sender');
+    return events().odooApps();
   });
   ipcMain.on('settings:dirty', (event, dirty: unknown) => {
     if (fromPage(event)) events().setDirty(dirty === true);

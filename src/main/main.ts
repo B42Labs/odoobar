@@ -13,7 +13,7 @@ import { createSettingsUi } from './settings-ui';
 import { loadOrCreateConfig } from './startup';
 import { createStartupUi } from './startup-ui';
 import { WindowController } from './window';
-import { createDesktop, createWindowUi } from './window-ui';
+import { createDesktop, createWindowUi, fetchOdooJson } from './window-ui';
 
 async function start(): Promise<void> {
   await app.whenReady();
@@ -44,6 +44,7 @@ async function start(): Promise<void> {
       suspendShortcuts: () => shortcuts.suspend(),
       resumeShortcuts: () => shortcuts.setConfig(store.get()),
       signOut: () => controller.signOut(),
+      fetchJson: fetchOdooJson,
     },
     messages,
   );

@@ -1,6 +1,7 @@
 import { ConfigError, isObject, validateConfig, type Config } from './config';
 import type { ShortcutState } from './global-shortcuts';
 import { fill, reasonOf, type Messages } from './messages';
+import { loadOdooApps, type OdooApp } from './odoo-apps';
 import type { KeyInput } from './shortcuts';
 
 /** What the settings page shows. It is sent whole on init and after every save. */
@@ -28,6 +29,10 @@ export type SaveResult =
 
 export type SignOutResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
+export type OdooAppsResult =
+  | { readonly ok: true; readonly apps: readonly OdooApp[] }
+  | { readonly ok: false; readonly error: string };
+
 export type RecordedKey =
   | { readonly kind: 'shortcut'; readonly accelerator: string }
   | { readonly kind: 'cancel' }
@@ -53,6 +58,12 @@ export interface SettingsDeps {
   suspendShortcuts(): void;
   resumeShortcuts(): void;
   signOut(): Promise<void>;
+  /**
+   * Fetches an address with the login of the Odoo pages and returns the JSON
+   * document of the answer, or undefined for an answer that holds none, such
+   * as a login page.
+   */
+  fetchJson(url: string): Promise<unknown>;
 }
 
 /**
@@ -268,6 +279,20 @@ export class Settings {
       return { ok: false, error: fill(this.messages.settings.signOutFailed, { reason: reasonOf(error) }) };
     }
     return { ok: true };
+  }
+
+  /**
+   * The apps of the Odoo account, for the choice of a new app. They come from
+   * the saved instance, since the login belongs to it.
+   */
+  async odooApps(): Promise<OdooAppsResult> {
+    const texts = this.messages.settings.odooApps;
+    try {
+      const apps = await loadOdooApps(this.deps.getConfig().baseUrl, (url) => this.deps.fetchJson(url));
+      return apps ? { ok: true, apps } : { ok: false, error: texts.signedOut };
+    } catch (error) {
+      return { ok: false, error: fill(texts.failed, { reason: reasonOf(error) }) };
+    }
   }
 
   private endRecording(accelerator: string | undefined): void {
