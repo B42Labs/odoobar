@@ -5,6 +5,7 @@ import { isAccelerator, type ShortcutState } from '../../src/main/global-shortcu
 import { messagesFor } from '../../src/main/messages';
 import {
   appId,
+  placeOver,
   prepareDraft,
   recordKey,
   Settings,
@@ -12,6 +13,7 @@ import {
   type SettingsUi,
 } from '../../src/main/settings';
 import type { KeyInput } from '../../src/main/shortcuts';
+import type { Bounds } from '../../src/main/window';
 
 const en = messagesFor('en');
 const B = 'https://odoo.example.com';
@@ -27,8 +29,9 @@ const two: Config = { baseUrl: B, launchAtLogin: false, apps: [home, crm] };
 /**
  * Settings on a screen and a rest of OdooBar that record every call as text.
  * `take` returns the calls since the last `take`. `world` holds what the fakes
- * answer: the configuration, the shortcut states, what a save does (by
- * default it keeps the configuration), the answers to both questions and to a
+ * answer: the configuration, the shortcut states, the place of the main
+ * window (by default none, as for a hidden one), what a save does (by default
+ * it keeps the configuration), the answers to both questions and to a
  * sign-out, and the JSON document of an address (by default none).
  */
 function fakeSettings(config: Config = two) {
@@ -36,6 +39,7 @@ function fakeSettings(config: Config = two) {
   const world = {
     config,
     states: [] as readonly ShortcutState[],
+    bounds: undefined as Bounds | undefined,
     save: (next: Config) => {
       world.config = next;
     },
@@ -45,7 +49,8 @@ function fakeSettings(config: Config = two) {
     fetchJson: (_url: string): Promise<unknown> => Promise.resolve(undefined),
   };
   const ui: SettingsUi = {
-    showWindow: () => calls.push('showWindow'),
+    showWindow: (over) =>
+      calls.push(over ? `showWindow over ${over.x},${over.y} ${over.width}x${over.height}` : 'showWindow'),
     closeWindow: () => calls.push('closeWindow'),
     recorded: (accelerator) => calls.push(`recorded ${accelerator}`),
     confirmSignOut: () => {
@@ -66,6 +71,7 @@ function fakeSettings(config: Config = two) {
     shortcutStates: () => world.states,
     suspendShortcuts: () => calls.push('suspendShortcuts'),
     resumeShortcuts: () => calls.push('resumeShortcuts'),
+    windowBounds: () => world.bounds,
     signOut: () => {
       calls.push('signOut');
       return world.signOut();
@@ -397,6 +403,35 @@ test('open shows the window and requestClose closes a clean one at once', () => 
   settings.setDirty(false);
   settings.requestClose();
   assert.deepEqual(take(), ['closeWindow']);
+});
+
+test('open shows the window over the main window while that one shows', () => {
+  const { settings, world, take } = fakeSettings();
+  world.bounds = { x: 1920, y: 25, width: 1200, height: 800 };
+  settings.open();
+  assert.deepEqual(take(), ['showWindow over 1920,25 1200x800']);
+});
+
+test('placeOver centers a window over the anchor', () => {
+  const screen = { x: 1920, y: 25, width: 2560, height: 1415 };
+  const size = { width: 760, height: 600 };
+  assert.deepEqual(placeOver(size, { x: 2400, y: 300, width: 1200, height: 800 }, screen), { x: 2620, y: 400 });
+  // An anchor smaller than the window, and a half point.
+  assert.deepEqual(placeOver(size, { x: 3000, y: 500, width: 481, height: 320 }, screen), { x: 2861, y: 360 });
+  // The whole area as the anchor centers the window on the screen.
+  assert.deepEqual(placeOver(size, screen, screen), { x: 2820, y: 433 });
+});
+
+test('placeOver keeps the window on the screen of the anchor', () => {
+  // A screen to the left of the primary one, which has negative places.
+  const screen = { x: -1440, y: 25, width: 1440, height: 875 };
+  const size = { width: 760, height: 600 };
+  assert.deepEqual(placeOver(size, { x: -1440, y: 25, width: 480, height: 320 }, screen), { x: -1440, y: 25 });
+  assert.deepEqual(placeOver(size, { x: -500, y: 500, width: 600, height: 400 }, screen), { x: -760, y: 300 });
+  // An anchor that hangs over the edge of its screen.
+  assert.deepEqual(placeOver(size, { x: -2000, y: -200, width: 1200, height: 800 }, screen), { x: -1440, y: 25 });
+  // A window larger than the area starts at its top left corner.
+  assert.deepEqual(placeOver({ width: 1600, height: 1000 }, screen, screen), { x: -1440, y: 25 });
 });
 
 test('requestClose asks once while dirty and closes only on discard', async () => {

@@ -40,6 +40,8 @@ import {
   launchInspected,
   loginItemSettings,
   menuBarIcons,
+  moveWindow,
+  placeOf,
   pressCommand,
   pressKey,
   recordLoginItem,
@@ -363,6 +365,28 @@ test('⌘W closes the settings, and opening them again shows the saved values', 
     await click(bar, '#settings');
     const again = await waitForSettings(port);
     assert.deepEqual((await readSettings(again)).apps[0], { ...home, name: 'Start' });
+  });
+});
+
+test('the settings open over the main window and stay on its screen', macOnly, async () => {
+  await withSettings(threeApps, async ({ main, port, bar }) => {
+    const open = async () => {
+      await closeSettings(main);
+      await eventually(async () => !(await settingsShown(port)), 'the settings to close');
+      await click(bar, '#settings');
+      await waitForSettings(port);
+      return (await placeOf(main, '/renderer/settings.html')).bounds;
+    };
+    const { workArea } = await placeOf(main, '/renderer/app-bar.html');
+
+    // Away from the middle of the screen, where the settings would open on their own.
+    const place = { x: workArea.x + 40, y: workArea.y + 20, width: 900, height: 640 };
+    await moveWindow(main, '/renderer/app-bar.html', place);
+    assert.deepEqual(await open(), { x: place.x + 70, y: place.y + 20, width: 760, height: 600 });
+
+    // A main window in the corner is smaller than the settings, which would hang over the edges.
+    await moveWindow(main, '/renderer/app-bar.html', { x: workArea.x, y: workArea.y, width: 480, height: 320 });
+    assert.deepEqual(await open(), { x: workArea.x, y: workArea.y, width: 760, height: 600 });
   });
 });
 

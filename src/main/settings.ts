@@ -3,6 +3,7 @@ import type { ShortcutState } from './global-shortcuts';
 import { fill, reasonOf, type Messages } from './messages';
 import { loadOdooApps, type OdooApp } from './odoo-apps';
 import type { KeyInput } from './shortcuts';
+import type { Bounds } from './window';
 
 /** What the settings page shows. It is sent whole on init and after every save. */
 export interface SettingsState {
@@ -40,8 +41,13 @@ export type RecordedKey =
 
 /** The seam between the settings decisions and the screen. settings-ui.ts is the Electron side. */
 export interface SettingsUi {
-  /** Brings the settings window to the front. The first call, and the first after a close, creates it. */
-  showWindow(): void;
+  /**
+   * Brings the settings window to the front. The first call, and the first
+   * after a close, creates it: over `over`, the place of the main window, or on
+   * the screen with the mouse pointer when the main window shows nowhere. A
+   * window that exists stays where it is.
+   */
+  showWindow(over: Bounds | undefined): void;
   /** Destroys the settings window without asking. */
   closeWindow(): void;
   /** Tells the page what the recorder caught. undefined ends the recording without a shortcut. */
@@ -57,6 +63,8 @@ export interface SettingsDeps {
   shortcutStates(): readonly ShortcutState[];
   suspendShortcuts(): void;
   resumeShortcuts(): void;
+  /** Where the main window is on the screens, or undefined while it is hidden. */
+  windowBounds(): Bounds | undefined;
   signOut(): Promise<void>;
   /**
    * Fetches an address with the login of the Odoo pages and returns the JSON
@@ -114,6 +122,26 @@ export function prepareDraft(value: unknown): unknown {
     return app;
   });
   return { ...value, apps };
+}
+
+/**
+ * The top left corner of a window of `size` that opens centered over
+ * `anchor`. `area` is the part of the screen of the anchor that windows may
+ * use, and the window moves as far as it must to lie inside: an anchor at the
+ * edge of the screen would push it off. A window larger than the area starts
+ * at the top left corner of the area, so its title bar stays in reach.
+ */
+export function placeOver(
+  size: { readonly width: number; readonly height: number },
+  anchor: Bounds,
+  area: Bounds,
+): { x: number; y: number } {
+  const along = (start: number, length: number, areaStart: number, areaLength: number, own: number) =>
+    Math.round(Math.max(areaStart, Math.min(start + (length - own) / 2, areaStart + areaLength - own)));
+  return {
+    x: along(anchor.x, anchor.width, area.x, area.width, size.width),
+    y: along(anchor.y, anchor.height, area.y, area.height, size.height),
+  };
 }
 
 /** The accelerator names of the keys the recorder takes besides letters, digits, and F keys, by `code`. */
@@ -181,7 +209,7 @@ export class Settings {
   ) {}
 
   open(): void {
-    this.ui.showWindow();
+    this.ui.showWindow(this.deps.windowBounds());
   }
 
   state(): SettingsState {

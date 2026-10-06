@@ -211,6 +211,9 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     isWindowFocused() {
       return window?.isFocused() ?? false;
     },
+    windowBounds() {
+      return window?.getBounds();
+    },
     clearProfile() {
       return odoo.clearData();
     },

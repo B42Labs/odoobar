@@ -15,13 +15,16 @@ const crm = entry('crm', 'CRM', '/odoo/crm');
 const discuss = entry('discuss', 'Discuss', '/odoo/discuss');
 const two: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss] };
 
+/** Where the window of fakeWindow is, once it was shown. */
+const PLACE = { x: 1920, y: 25, width: 1200, height: 800 };
+
 /**
  * A WindowController on a screen and a system that record every call but
- * renderBar and isWindowFocused as text. `take` returns the calls since the
- * last `take`, and `bar` the last state that the app bar got. The window takes
- * the keys from showWindow until hideWindow or `blur`, as a click into
- * another program does. clearProfile resolves at once unless `clearWith`
- * replaces it.
+ * renderBar, isWindowFocused, and windowBounds as text. `take` returns the
+ * calls since the last `take`, and `bar` the last state that the app bar got.
+ * The window takes the keys from showWindow until hideWindow or `blur`, as a
+ * click into another program does. clearProfile resolves at once unless
+ * `clearWith` replaces it.
  */
 function fakeWindow(config: Config, messages: Messages = en) {
   let calls: string[] = [];
@@ -46,6 +49,7 @@ function fakeWindow(config: Config, messages: Messages = en) {
       calls.push('hideWindow');
     },
     isWindowFocused: () => focused,
+    windowBounds: () => PLACE,
     clearProfile: () => {
       calls.push('clearProfile');
       return clear();
@@ -143,6 +147,15 @@ test('hide hides the window and keeps the views', () => {
   assert.deepEqual(take(), ['hideWindow']);
   controller.show();
   assert.deepEqual(take(), ['showWindow', 'showView crm']);
+});
+
+test('bounds gives the place of the window only while it shows', () => {
+  const { controller } = fakeWindow(two);
+  assert.equal(controller.bounds(), undefined);
+  controller.show();
+  assert.deepEqual(controller.bounds(), PLACE);
+  controller.hide();
+  assert.equal(controller.bounds(), undefined);
 });
 
 test('pressApp switches to another app and loads the start address of the active one', () => {

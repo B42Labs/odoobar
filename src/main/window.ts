@@ -12,6 +12,14 @@ export interface BarState {
   readonly texts: { readonly settings: string; readonly retry: string };
 }
 
+/** A place on the screens, in the points that Electron counts across all of them. */
+export interface Bounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /** The seam between the window decisions and the screen. window-ui.ts is the Electron side. */
 export interface WindowUi {
   /** Creates the view of an app and loads `url` in it. */
@@ -29,6 +37,8 @@ export interface WindowUi {
   hideWindow(): void;
   /** Whether the window is the one that takes the keys right now. False for a hidden window and before the first showWindow. */
   isWindowFocused(): boolean;
+  /** Where the window is, or was when it hid. undefined before the first showWindow. */
+  windowBounds(): Bounds | undefined;
   /** Deletes what the pages of all views stored: cookies, page storage, and caches. */
   clearProfile(): Promise<void>;
 }
@@ -144,6 +154,11 @@ export class WindowController {
 
   openSettings(): void {
     this.desktop.openSettings();
+  }
+
+  /** Where the window is on the screens. A hidden window is nowhere, so nothing opens over a place the user does not see. */
+  bounds(): Bounds | undefined {
+    return this.visible ? this.ui.windowBounds() : undefined;
   }
 
   handleShortcut(shortcut: Shortcut): void {
