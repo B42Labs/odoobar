@@ -2,7 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppConfig, Config } from '../../src/main/config';
 import { messagesFor, type Messages } from '../../src/main/messages';
-import { WindowController, type BarState, type Desktop, type WindowUi } from '../../src/main/window';
+import {
+  WindowController,
+  type BarState,
+  type Desktop,
+  type Direction,
+  type WindowUi,
+} from '../../src/main/window';
 
 const en = messagesFor('en');
 const B = 'https://odoo.example.com';
@@ -20,8 +26,9 @@ const PLACE = { x: 1920, y: 25, width: 1200, height: 800 };
 
 /**
  * A WindowController on a screen and a system that record every call but
- * renderBar, isWindowFocused, and windowBounds as text. `take` returns the
- * calls since the last `take`, and `bar` the last state that the app bar got.
+ * renderBar, canGo, isWindowFocused, and windowBounds as text. `take` returns
+ * the calls since the last `take`, and `bar` the last state that the app bar
+ * got. The view of an app can go nowhere until `history` names its directions.
  * The window takes the keys from showWindow until hideWindow or `blur`, as a
  * click into another program does. clearProfile resolves at once unless
  * `clearWith` replaces it.
@@ -30,12 +37,15 @@ function fakeWindow(config: Config, messages: Messages = en) {
   let calls: string[] = [];
   let state: BarState | undefined;
   let focused = false;
+  const steps = new Map<string, Direction[]>();
   let clear = (): Promise<void> => Promise.resolve();
   const ui: WindowUi = {
     openView: (id, url) => calls.push(`openView ${id} ${url}`),
     closeView: (id) => calls.push(`closeView ${id}`),
     loadView: (id, url) => calls.push(`loadView ${id} ${url}`),
     reloadView: (id) => calls.push(`reloadView ${id}`),
+    canGo: (id, direction) => steps.get(id)?.includes(direction) ?? false,
+    go: (id, direction) => calls.push(`go ${id} ${direction}`),
     showView: (id) => calls.push(`showView ${id}`),
     renderBar: (next) => {
       state = next;
@@ -71,7 +81,10 @@ function fakeWindow(config: Config, messages: Messages = en) {
   const blur = () => {
     focused = false;
   };
-  return { controller, take, bar: () => state, clearWith, blur };
+  const history = (id: string, ...directions: Direction[]) => {
+    steps.set(id, directions);
+  };
+  return { controller, take, bar: () => state, clearWith, blur, history };
 }
 
 /** A fakeWindow whose window is shown, with the calls of show() taken. */
@@ -99,8 +112,9 @@ test('show brings up the window and loads only the first app', () => {
       { id: 'discuss', name: 'Discuss' },
     ],
     activeId: 'crm',
+    nav: { back: false, forward: false, reload: true },
     notice: undefined,
-    texts: { settings: 'Settings', retry: 'Try again' },
+    texts: { back: 'Back', forward: 'Forward', reload: 'Reload', settings: 'Settings', retry: 'Try again' },
   });
 });
 
@@ -191,6 +205,69 @@ test('reloadActive does nothing without an app or before the window was shown', 
   const hidden = fakeWindow(two);
   hidden.controller.reloadActive();
   assert.deepEqual(hidden.take(), []);
+});
+
+test('the bar offers back and forward once the view of the active app can go there', () => {
+  const { controller, bar, history } = shownWindow(two);
+  assert.deepEqual(bar()?.nav, { back: false, forward: false, reload: true });
+  history('crm', 'back');
+  controller.historyChanged('crm');
+  assert.deepEqual(bar()?.nav, { back: true, forward: false, reload: true });
+
+  controller.selectApp('discuss');
+  assert.deepEqual(bar()?.nav, { back: false, forward: false, reload: true });
+  // The history of a background app leaves the bar as it is.
+  const drawn = bar();
+  history('crm', 'back', 'forward');
+  controller.historyChanged('crm');
+  assert.equal(bar(), drawn);
+  controller.selectApp('crm');
+  assert.deepEqual(bar()?.nav, { back: true, forward: true, reload: true });
+});
+
+test('the bar offers neither back, forward, nor reload for an app without a view', () => {
+  const none = { back: false, forward: false, reload: false };
+  const hidden = fakeWindow(two);
+  hidden.history('discuss', 'back', 'forward');
+  hidden.controller.selectApp('discuss');
+  assert.deepEqual(hidden.bar()?.nav, none);
+  hidden.controller.go('back');
+  assert.deepEqual(hidden.take(), []);
+
+  const empty = shownWindow({ ...two, apps: [] });
+  assert.deepEqual(empty.bar()?.nav, none);
+  empty.controller.go('back');
+  assert.deepEqual(empty.take(), []);
+});
+
+test('go takes the active app one step and does nothing without a page in that direction', () => {
+  const { controller, take, history } = shownWindow(two);
+  controller.go('back');
+  controller.go('forward');
+  assert.deepEqual(take(), []);
+  history('crm', 'back');
+  controller.go('forward');
+  controller.go('back');
+  assert.deepEqual(take(), ['go crm back']);
+  history('crm', 'forward');
+  controller.go('back');
+  controller.go('forward');
+  assert.deepEqual(take(), ['go crm forward']);
+});
+
+test('go replaces the notice of a page that did not load with the page it leads to', () => {
+  const { controller, take, bar, history } = shownWindow(two);
+  controller.loadFailed('crm', `${B}/odoo/crm/7`, 'ERR_NAME_NOT_RESOLVED');
+  take();
+  controller.go('back');
+  assert.deepEqual(take(), []);
+  assert.equal(bar()?.notice?.retry, true);
+  history('crm', 'back');
+  controller.historyChanged('crm');
+  assert.equal(bar()?.nav.back, true);
+  controller.go('back');
+  assert.deepEqual(take(), ['go crm back', 'showView crm']);
+  assert.equal(bar()?.notice, undefined);
 });
 
 test('toggleApp shows the window with the app and hides it when that app is in front', () => {
@@ -312,7 +389,13 @@ test('the notice is German for German messages', () => {
   const { controller, bar } = shownWindow(two, messagesFor('de'));
   controller.loadFailed('crm', `${B}/odoo/crm`, 'ERR_CONNECTION_REFUSED');
   assert.equal(bar()?.notice?.text, `CRM konnte nicht geladen werden.\n\n${B}/odoo/crm\nERR_CONNECTION_REFUSED`);
-  assert.deepEqual(bar()?.texts, { settings: 'Einstellungen', retry: 'Erneut versuchen' });
+  assert.deepEqual(bar()?.texts, {
+    back: 'Zurück',
+    forward: 'Vorwärts',
+    reload: 'Neu laden',
+    settings: 'Einstellungen',
+    retry: 'Erneut versuchen',
+  });
 });
 
 test('viewClosed opens the active app again at its start address', () => {

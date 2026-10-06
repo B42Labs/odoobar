@@ -36,6 +36,7 @@ import {
   closeSettings,
   closeWindow,
   desktopCalls,
+  focusPage,
   launchInspected,
   pressCommand,
   recordDesktopCalls,
@@ -230,6 +231,58 @@ test('the window shortcuts switch between apps and reload the active one', macOn
     await pressCommand(main, '/odoo/crm', 'r');
     await eventually(() => server.requests.length === 3, 'CRM to reload');
     assert.deepEqual(server.requests, ['/odoo/crm', '/odoo/discuss', '/odoo/crm']);
+  });
+});
+
+test('the buttons of the app bar step through the pages of the active app and reload it', macOnly, async () => {
+  await withWindow(twoApps, async ({ server, main, port, bar }) => {
+    const crm = await loadedPage(port, '/odoo/crm');
+    const nav = async (back: boolean, forward: boolean) => {
+      const state = (await readBar(bar)).nav;
+      return state.back === back && state.forward === forward && state.reload;
+    };
+    const pathOf = (page: Page) => evaluate(page, 'location.pathname');
+    assert.equal(await nav(false, false), true);
+    for (const [id, title] of [
+      ['back', 'Back'],
+      ['forward', 'Forward'],
+      ['reload', 'Reload'],
+    ])
+      assert.equal(await evaluate(bar, `document.getElementById('${id}').title`), title);
+
+    // Odoo moves between its pages without loading a document.
+    await evaluate(crm, `history.pushState(null, '', '/odoo/crm/7'); true`, true);
+    await eventually(() => nav(true, false), 'the way back');
+
+    // A click in the app bar takes the keys, and the button hands them back to the page.
+    await focusPage(main, '/renderer/app-bar.html');
+    await eventually(async () => (await evaluate(crm, 'document.hasFocus()')) === false, 'the app bar to have the keys');
+    await click(bar, '#back');
+    await eventually(async () => (await pathOf(crm)) === '/odoo/crm', 'CRM to go back');
+    await eventually(() => nav(false, true), 'the way forward');
+    await eventually(async () => (await evaluate(crm, 'document.hasFocus()')) === true, 'CRM to have the keys');
+
+    await click(bar, '#forward');
+    await eventually(async () => (await pathOf(crm)) === '/odoo/crm/7', 'CRM to go forward');
+    await eventually(() => nav(true, false), 'the way back again');
+    assert.deepEqual(server.requests, ['/odoo/crm']);
+
+    await focusPage(main, '/renderer/app-bar.html');
+    await click(bar, '#reload');
+    await eventually(() => server.requests.length === 2, 'CRM to reload');
+    assert.deepEqual(server.requests, ['/odoo/crm', '/odoo/crm/7']);
+    await eventually(async () => (await evaluate(crm, 'document.hasFocus()')) === true, 'CRM to have the keys again');
+
+    // Each app has its own pages. A link inside the instance loads a document in the view.
+    await click(bar, '[data-app-id="discuss"]');
+    const discuss = await loadedPage(port, '/odoo/discuss');
+    await eventually(() => nav(false, false), 'no way back in Discuss');
+    await click(discuss, '#new-tab');
+    await eventually(async () => (await pathOf(discuss)) === '/odoo/linked', 'Discuss to follow the link');
+    await eventually(() => nav(true, false), 'the way back in Discuss');
+    await click(bar, '[data-app-id="crm"]');
+    await eventually(() => isActive(bar, 'crm'), 'CRM to be active');
+    assert.equal(await nav(true, false), true);
   });
 });
 
@@ -441,6 +494,7 @@ test('a page that does not load shows a notice and loads on a retry', macOnly, a
       await eventually(async () => (await readBar(bar)).notice === notice, 'the notice');
       assert.equal((await readBar(bar)).retry, true);
       assert.equal(await evaluate(bar, `document.getElementById('retry').textContent`), 'Try again');
+      assert.deepEqual((await readBar(bar)).nav, { back: false, forward: false, reload: true });
 
       const server = await startOdooServer(closed.port);
       try {
@@ -497,7 +551,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     await evaluate(
       main,
       `globalThis.barMessages = 0;
-      for (const channel of ['app-bar:settings', 'app-bar:retry'])
+      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload'])
         process.mainModule.require('electron').ipcMain.on(channel, () => globalThis.barMessages++);
       true`,
     );
@@ -505,16 +559,16 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     const other = join(userDataDir, 'other.html');
     writeFileSync(
       other,
-      `<div id="apps"></div><button id="settings"></button>
+      `<button id="back"></button><button id="forward"></button><button id="reload"></button>
+<div id="apps"></div><button id="settings"></button>
 <div id="notice"><p id="notice-text"></p><button id="retry"></button></div>
 <script>addEventListener('load', () => {
-  document.getElementById('settings').click();
-  document.getElementById('retry').click();
+  for (const button of document.querySelectorAll('button')) button.click();
 });</script>`,
     );
     // A page that the main process loads gets past will-navigate.
     await navigate(bar, pathToFileURL(other).href);
-    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 2, 'both messages to arrive');
+    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 5, 'every message to arrive');
     // Time for a reload of CRM, which must not come.
     await sleep(500);
     assert.deepEqual(await desktopCalls(main), []);
@@ -530,6 +584,7 @@ test('an empty app list shows a notice and no app', macOnly, async () => {
     async ({ server, port, bar }) => {
       assert.deepEqual(await readBar(bar), {
         apps: [],
+        nav: { back: false, forward: false, reload: false },
         notice: 'No apps are configured.',
         retry: false,
         visible: true,

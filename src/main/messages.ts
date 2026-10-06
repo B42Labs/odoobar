@@ -17,6 +17,9 @@ export interface Messages {
   readonly unreadableConfig: string;
   readonly resetFailed: string;
   readonly appBar: {
+    readonly back: string;
+    readonly forward: string;
+    readonly reload: string;
     readonly settings: string;
     readonly retry: string;
     readonly noApps: string;
@@ -124,6 +127,9 @@ const en: Messages = {
   unreadableConfig: 'OdooBar cannot read its configuration',
   resetFailed: 'OdooBar could not rename the configuration file',
   appBar: {
+    back: 'Back',
+    forward: 'Forward',
+    reload: 'Reload',
     settings: 'Settings',
     retry: 'Try again',
     noApps: 'No apps are configured.',
@@ -238,6 +244,9 @@ const de: Messages = {
   unreadableConfig: 'OdooBar kann seine Konfiguration nicht lesen',
   resetFailed: 'OdooBar konnte die Konfigurationsdatei nicht umbenennen',
   appBar: {
+    back: 'Zurück',
+    forward: 'Vorwärts',
+    reload: 'Neu laden',
     settings: 'Einstellungen',
     retry: 'Erneut versuchen',
     noApps: 'Es sind keine Apps eingerichtet.',

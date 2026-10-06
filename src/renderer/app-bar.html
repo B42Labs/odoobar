@@ -12,8 +12,12 @@
       #apps { flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
       button { font: inherit; color: inherit; white-space: nowrap; }
       nav button { border: 0; border-radius: 6px; padding: 5px 10px; background: transparent; }
-      nav button:hover { background: color-mix(in srgb, CanvasText 8%, transparent); }
+      nav button:enabled:hover { background: color-mix(in srgb, CanvasText 8%, transparent); }
+      nav button:disabled { opacity: 0.35; }
       nav button[aria-current] { background: color-mix(in srgb, CanvasText 15%, transparent); font-weight: 600; }
+      nav button.icon { padding: 5px; }
+      .icon svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+      #reload { margin-right: 4px; }
       #settings { font-size: 16px; padding: 3px 8px; }
       #notice { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 64px 24px; text-align: center; }
       #notice-text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
@@ -22,6 +26,9 @@
   </head>
   <body hidden>
     <nav>
+      <button id="back" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" /></svg></button>
+      <button id="forward" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg></button>
+      <button id="reload" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="M13.5 2.5v4h-4" /><path d="M13 9.5a5.25 5.25 0 1 1-1.25-5.2L13.5 6.5" /></svg></button>
       <div id="apps"></div>
       <button id="settings" type="button">⚙</button>
     </nav>
