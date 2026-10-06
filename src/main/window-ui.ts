@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   session,
   shell,
@@ -279,6 +280,13 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     clearProfile() {
       return odoo.clearData();
     },
+    showFailure({ message, detail }) {
+      // No buttons, so macOS shows its OK button.
+      const options = { type: 'warning' as const, message, detail };
+      (window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options)).catch((error: unknown) => {
+        console.error(`OdooBar could not show the failure "${message}" (${detail}):`, error);
+      });
+    },
   };
 }
 
@@ -293,17 +301,30 @@ export async function fetchOdooJson(url: string): Promise<unknown> {
 }
 
 /**
- * Fetches an address through a session, uncached, and returns the JSON
- * document of the answer, or undefined for an answer that holds none. An
+ * Posts a JSON document to an address with the cookies of the Odoo pages and
+ * returns the JSON document of the answer, or undefined for an answer that
+ * holds none, such as the 404 page of an instance without that address. An
  * address that does not answer within ten seconds fails.
  */
-export async function fetchSessionJson(from: Session, url: string, accept: string): Promise<unknown> {
+export async function postOdooJson(url: string, body: unknown): Promise<unknown> {
+  return fetchSessionJson(session.fromPartition(PARTITION), url, 'application/json', body);
+}
+
+/**
+ * Fetches an address through a session, uncached, and returns the JSON
+ * document of the answer, or undefined for an answer that holds none. A body
+ * makes the request a POST of that body as JSON. An address that does not
+ * answer within ten seconds fails.
+ */
+export async function fetchSessionJson(from: Session, url: string, accept: string, body?: unknown): Promise<unknown> {
+  const post = body === undefined ? {} : { method: 'POST', body: JSON.stringify(body) };
   const response = await from.fetch(url, {
-    headers: { accept },
+    headers: body === undefined ? { accept } : { accept, 'content-type': 'application/json' },
     // Every caller needs the current answer: Odoo before 19 lets a browser keep its menus for a year, which would
     // outlast a new app and a change of the user, and GitHub lets a client keep the latest release for a minute.
     cache: 'no-store',
     signal: AbortSignal.timeout(10_000),
+    ...post,
   });
   if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) return undefined;
   return response.json();
@@ -313,6 +334,8 @@ export async function fetchSessionJson(from: Session, url: string, accept: strin
 export function createDesktop(openSettings: () => void): Desktop {
   return {
     fetchJson: fetchOdooJson,
+    postJson: postOdooJson,
+    now: () => Date.now(),
     openExternal(url) {
       shell.openExternal(url).catch((error: unknown) => {
         console.error(`OdooBar could not open ${url}:`, error);

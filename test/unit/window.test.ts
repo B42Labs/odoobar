@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { checkInClock } from '../../src/main/attendance';
 import type { AppConfig, Config } from '../../src/main/config';
 import { messagesFor, type Messages } from '../../src/main/messages';
 import {
@@ -24,15 +25,22 @@ const two: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: 
 /** Where the window of fakeWindow is, once it was shown. */
 const PLACE = { x: 1920, y: 25, width: 1200, height: 800 };
 
+/** The check-in of attendanceOf at 08:15 local time, and an hour after it, which is the same day in every time zone. */
+const SINCE = new Date(2026, 9, 6, 8, 15).getTime();
+const NOW = SINCE + 3_600_000;
+
 /**
  * A WindowController on a screen and a system that record every call but
- * renderBar, canGo, isWindowFocused, windowBounds, and fetchJson as text. `take` returns
- * the calls since the last `take`, and `bar` the last state that the app bar
- * got. The view of an app can go nowhere until `history` names its directions.
- * The window takes the keys from showWindow until hideWindow or `blur`, as a
- * click into another program does. clearProfile resolves at once unless
- * `clearWith` replaces it. The instance answers every address with the value
- * of `menus.document`, and fails while that is an Error.
+ * renderBar, canGo, isWindowFocused, windowBounds, fetchJson, postJson, and
+ * now as text. `take` returns the calls since the last `take`, and `bar` the
+ * last state that the app bar got. The view of an app can go nowhere until
+ * `history` names its directions. The window takes the keys from showWindow
+ * until hideWindow or `blur`, as a click into another program does.
+ * clearProfile resolves at once unless `clearWith` replaces it. The instance
+ * answers every address with the value of `menus.document`, and fails while
+ * that is an Error. `odoo.posts` holds the address of every post, which
+ * `odoo.answer` answers, by default with no document. The clock stands at
+ * `odoo.now`.
  */
 function fakeWindow(config: Config, messages: Messages = en) {
   let calls: string[] = [];
@@ -41,6 +49,7 @@ function fakeWindow(config: Config, messages: Messages = en) {
   const steps = new Map<string, Direction[]>();
   let clear = (): Promise<void> => Promise.resolve();
   const menus: { document: unknown } = { document: undefined };
+  const odoo = { posts: [] as string[], answer: (_url: string): unknown => undefined, now: NOW };
   const ui: WindowUi = {
     openView: (id, url) => calls.push(`openView ${id} ${url}`),
     closeView: (id) => calls.push(`closeView ${id}`),
@@ -66,6 +75,7 @@ function fakeWindow(config: Config, messages: Messages = en) {
       calls.push('clearProfile');
       return clear();
     },
+    showFailure: ({ message, detail }) => calls.push(`showFailure ${message} | ${detail}`),
   };
   const desktop: Desktop = {
     openExternal: (url) => calls.push(`openExternal ${url}`),
@@ -74,6 +84,12 @@ function fakeWindow(config: Config, messages: Messages = en) {
       if (menus.document instanceof Error) throw menus.document;
       return menus.document;
     },
+    // The async function turns an error that `answer` throws into a rejection.
+    postJson: async (url) => {
+      odoo.posts.push(url);
+      return odoo.answer(url);
+    },
+    now: () => odoo.now,
   };
   const controller = new WindowController(ui, desktop, messages, config);
   const take = () => {
@@ -90,7 +106,7 @@ function fakeWindow(config: Config, messages: Messages = en) {
   const history = (id: string, ...directions: Direction[]) => {
     steps.set(id, directions);
   };
-  return { controller, take, bar: () => state, clearWith, blur, history, menus };
+  return { controller, take, bar: () => state, clearWith, blur, history, menus, odoo };
 }
 
 /** A fakeWindow whose window is shown, with the calls of show() taken. */
@@ -121,6 +137,7 @@ test('show brings up the window and loads only the first app', () => {
     nav: { back: false, forward: false, reload: true },
     notice: undefined,
     update: undefined,
+    attendance: undefined,
     texts: { back: 'Back', forward: 'Forward', reload: 'Reload', settings: 'Settings', retry: 'Try again' },
   });
 });
@@ -943,4 +960,380 @@ test('signOut drops every opened app and the apps of the account, also from an a
   menus.document = account;
   await controller.pageLoaded();
   assert.equal(controller.followLink('crm', `${B}/odoo`, FLEET), true);
+});
+
+const STATE = `${B}/hr_attendance/attendance_user_data`;
+const TOGGLE = `${B}/hr_attendance/systray_check_in_out`;
+
+/** SINCE as Odoo writes it: UTC, as `YYYY-MM-DD HH:MM:SS`. */
+const SINCE_ODOO = new Date(SINCE).toISOString().slice(0, 19).replace('T', ' ');
+
+/** The answer of the state route for an employee with a check-in at `lastCheckIn`, SINCE by default. */
+function attendanceOf(checkedIn: boolean, lastCheckIn: string | false = SINCE_ODOO) {
+  return {
+    jsonrpc: '2.0',
+    id: null,
+    result: {
+      id: 7,
+      hours_today: 1.5,
+      last_check_in: lastCheckIn,
+      attendance_state: checkedIn ? 'checked_in' : 'checked_out',
+      display_systray: true,
+    },
+  };
+}
+
+/** The answer of either route without a login. */
+const expired = { jsonrpc: '2.0', id: null, error: { code: 100, message: 'Odoo Session Expired', data: {} } };
+
+/** The answer of either route when Odoo raises an error with this text for the user. */
+function refused(message: string) {
+  return { jsonrpc: '2.0', id: null, error: { code: 200, message: 'Odoo Server Error', data: { message } } };
+}
+
+/** Answers one post after the other with these values. A promise answers once it settles, and an Error rejects. */
+function inTurn(...answers: unknown[]) {
+  return () => {
+    const answer = answers.shift();
+    if (answer instanceof Error) throw answer;
+    return answer;
+  };
+}
+
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
+/** Lets every settled promise run its callbacks. */
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+/** A shownWindow whose button shows the state that the instance answered, with the posts so far dropped. */
+async function attendingWindow(checkedIn: boolean, config: Config = two, messages: Messages = en) {
+  const fake = shownWindow(config, messages);
+  fake.odoo.answer = () => attendanceOf(checkedIn);
+  await fake.controller.refreshAttendance();
+  fake.odoo.posts.length = 0;
+  return fake;
+}
+
+const checkIn = { checkedIn: false, hint: 'Check in', busy: false };
+const checkOut = { checkedIn: true, hint: `Check out (checked in since ${checkInClock(SINCE, NOW, 'en')})`, busy: false };
+
+test('the bar has no attendance button before Odoo answered, and show asks Odoo for the state', async () => {
+  const { controller, bar, odoo } = fakeWindow(two);
+  controller.show();
+  assert.equal(bar()?.attendance, undefined);
+  await settle();
+  assert.deepEqual(odoo.posts, [STATE]);
+  // The instance answered with no document, as one without the routes does.
+  assert.equal(bar()?.attendance, undefined);
+});
+
+test('refreshAttendance shows the button for a checked-out employee', async () => {
+  const { controller, bar, odoo } = fakeWindow(two);
+  odoo.answer = () => attendanceOf(false);
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, checkIn);
+  assert.deepEqual(odoo.posts, [STATE]);
+});
+
+test('the hint names the time of the check-in, or none when Odoo names none, and is German for German messages', async () => {
+  const { controller, bar, odoo } = fakeWindow(two);
+  odoo.answer = () => attendanceOf(true);
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, checkOut);
+  assert.match(bar()?.attendance?.hint ?? '', /^Check out \(checked in since 08:15\sAM\)$/u);
+
+  odoo.answer = () => attendanceOf(true, false);
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, { checkedIn: true, hint: 'Check out', busy: false });
+
+  // A check-in on the day before names its day.
+  odoo.now = SINCE + 24 * 3_600_000;
+  odoo.answer = () => attendanceOf(true);
+  await controller.refreshAttendance();
+  assert.equal(bar()?.attendance?.hint, `Check out (checked in since ${checkInClock(SINCE, odoo.now, 'en')})`);
+  assert.match(bar()?.attendance?.hint ?? '', /Oct/);
+
+  const german = await attendingWindow(false, two, messagesFor('de'));
+  assert.deepEqual(german.bar()?.attendance, { checkedIn: false, hint: 'Einchecken', busy: false });
+  german.odoo.answer = () => attendanceOf(true);
+  await german.controller.refreshAttendance();
+  assert.equal(german.bar()?.attendance?.hint, `Auschecken (eingecheckt seit ${checkInClock(SINCE, NOW, 'de')})`);
+});
+
+test('the button is absent for every state that is not usable', async () => {
+  const notUsable: [string, unknown][] = [
+    ['unavailable', undefined],
+    ['signed-out', expired],
+    ['no-employee', { jsonrpc: '2.0', id: null, result: {} }],
+    ['systray-off', { ...attendanceOf(false), result: { ...attendanceOf(false).result, display_systray: false } }],
+  ];
+  for (const [kind, answer] of notUsable) {
+    const { controller, bar, odoo } = await attendingWindow(false);
+    assert.deepEqual(bar()?.attendance, checkIn, kind);
+    odoo.answer = () => answer;
+    await controller.refreshAttendance();
+    assert.equal(bar()?.attendance, undefined, kind);
+  }
+});
+
+test('refreshAttendance keeps the button when Odoo does not answer, and logs why', async (t) => {
+  const log = t.mock.method(console, 'error', () => {});
+  const { controller, bar, odoo } = await attendingWindow(true);
+  const failure = new Error('net::ERR_INTERNET_DISCONNECTED');
+  odoo.answer = inTurn(failure, refused('Odoo is down.'));
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, checkOut);
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, checkOut);
+  assert.equal(log.mock.callCount(), 2);
+  assert.deepEqual(log.mock.calls[0]?.arguments, [`OdooBar could not read the attendance state of ${B}:`, failure]);
+});
+
+test('of two reads in flight only the answer of the later one reaches the bar', async () => {
+  const { controller, bar, odoo } = fakeWindow(two);
+  const earlier = deferred<unknown>();
+  const later = deferred<unknown>();
+  odoo.answer = inTurn(earlier.promise, later.promise);
+  const first = controller.refreshAttendance();
+  const second = controller.refreshAttendance();
+  later.resolve(attendanceOf(true));
+  await second;
+  earlier.resolve(attendanceOf(false));
+  await first;
+  assert.deepEqual(bar()?.attendance, checkOut);
+});
+
+test('with the switch off OdooBar asks nothing about attendance', async () => {
+  const { controller, bar, odoo } = fakeWindow({ ...two, attendance: false });
+  odoo.answer = () => attendanceOf(false);
+  controller.show();
+  await controller.refreshAttendance();
+  await controller.pressAttendance();
+  await settle();
+  assert.deepEqual(odoo.posts, []);
+  assert.equal(bar()?.attendance, undefined);
+});
+
+test('a click reads the state, checks in, and reads again', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  const first = deferred<unknown>();
+  odoo.answer = inTurn(first.promise, { jsonrpc: '2.0', id: null, result: {} }, attendanceOf(true));
+  const click = controller.pressAttendance();
+  assert.deepEqual(bar()?.attendance, { ...checkIn, busy: true });
+  first.resolve(attendanceOf(false));
+  await click;
+  assert.deepEqual(odoo.posts, [STATE, TOGGLE, STATE]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+  assert.deepEqual(take(), []);
+});
+
+test('a click on an outdated icon only updates the icon', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  // A check-in on a phone since the last read.
+  odoo.answer = inTurn(attendanceOf(true));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+  assert.deepEqual(take(), []);
+});
+
+test('a click after the login expired removes the button and says so', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  odoo.answer = inTurn(expired);
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.deepEqual(take(), ['showFailure OdooBar could not check you in | Sign in to Odoo in the OdooBar window first.']);
+  assert.equal(bar()?.attendance, undefined);
+});
+
+test('a click that cannot reach Odoo keeps the icon and names the reason', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  odoo.answer = inTurn(new Error('net::ERR_INTERNET_DISCONNECTED'));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.deepEqual(take(), ['showFailure OdooBar could not check you in | net::ERR_INTERNET_DISCONNECTED']);
+  assert.deepEqual(bar()?.attendance, checkIn);
+});
+
+test('a change that Odoo refuses is reported with the text of Odoo, and the button shows the state after it', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(true);
+  odoo.answer = inTurn(attendanceOf(true), refused('You cannot check out now.'), attendanceOf(true, false));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), ['showFailure OdooBar could not check you out | You cannot check out now.']);
+  assert.deepEqual(bar()?.attendance, { checkedIn: true, hint: 'Check out', busy: false });
+});
+
+test('a change without an answer or after the login expired is reported', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  odoo.answer = inTurn(attendanceOf(false), undefined, attendanceOf(false));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts.splice(0), [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), ['showFailure OdooBar could not check you in | Odoo did not answer the request.']);
+  assert.deepEqual(bar()?.attendance, checkIn);
+
+  odoo.answer = inTurn(attendanceOf(false), expired, expired);
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), ['showFailure OdooBar could not check you in | Sign in to Odoo in the OdooBar window first.']);
+  assert.equal(bar()?.attendance, undefined);
+});
+
+test('a change that Odoo made although its answer timed out or got lost is no failure', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  odoo.answer = inTurn(attendanceOf(false), new Error('The operation was aborted due to timeout'), attendanceOf(true));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts.splice(0), [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), []);
+  assert.deepEqual(bar()?.attendance, checkOut);
+
+  // A proxy that answered with its own error page after Odoo checked out.
+  odoo.answer = inTurn(attendanceOf(true), undefined, attendanceOf(false));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), []);
+  assert.deepEqual(bar()?.attendance, checkIn);
+});
+
+test('a click whose last read fails keeps the icon it had, logs why, and the next click asks first', async (t) => {
+  const log = t.mock.method(console, 'error', () => {});
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  const failure = new Error('net::ERR_TIMED_OUT');
+  odoo.answer = inTurn(attendanceOf(false), { jsonrpc: '2.0', id: null, result: {} }, failure);
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts.splice(0), [STATE, TOGGLE, STATE]);
+  assert.deepEqual(take(), []);
+  assert.deepEqual(bar()?.attendance, checkIn);
+  assert.deepEqual(log.mock.calls.map((call) => call.arguments), [
+    [`OdooBar could not read the attendance state of ${B} after a click:`, failure],
+  ]);
+
+  // The check-in worked, so the next click finds it and changes nothing.
+  odoo.answer = inTurn(attendanceOf(true));
+  await controller.pressAttendance();
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+});
+
+test('a second click and a read during a click ask nothing', async () => {
+  const { controller, bar, odoo } = await attendingWindow(false);
+  const first = deferred<unknown>();
+  odoo.answer = inTurn(first.promise, { jsonrpc: '2.0', id: null, result: {} }, attendanceOf(true));
+  const click = controller.pressAttendance();
+  await controller.pressAttendance();
+  await controller.refreshAttendance();
+  assert.deepEqual(odoo.posts, [STATE]);
+  first.resolve(attendanceOf(false));
+  await click;
+  assert.deepEqual(odoo.posts, [STATE, TOGGLE, STATE]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+});
+
+test('a click without a button asks nothing', async () => {
+  // Before an answer.
+  const hidden = fakeWindow(two);
+  hidden.odoo.answer = () => attendanceOf(false);
+  await hidden.controller.pressAttendance();
+  assert.deepEqual(hidden.odoo.posts, []);
+
+  // With the switch off since the last answer.
+  const off = await attendingWindow(false);
+  off.controller.setConfig({ ...two, attendance: false });
+  await off.controller.pressAttendance();
+  assert.deepEqual(off.odoo.posts, []);
+
+  // After an answer that is not usable.
+  const employeeless = shownWindow(two);
+  employeeless.odoo.answer = () => ({ jsonrpc: '2.0', id: null, result: {} });
+  await employeeless.controller.refreshAttendance();
+  employeeless.odoo.posts.length = 0;
+  await employeeless.controller.pressAttendance();
+  assert.deepEqual(employeeless.odoo.posts, []);
+  assert.deepEqual(employeeless.take(), []);
+});
+
+test('signOut removes the button at once and ends a click on its way without a change and without a word', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(false);
+  const first = deferred<unknown>();
+  odoo.answer = inTurn(first.promise, { jsonrpc: '2.0', id: null, result: {} }, attendanceOf(true));
+  const click = controller.pressAttendance();
+  const done = controller.signOut();
+  assert.equal(bar()?.attendance, undefined);
+  first.resolve(attendanceOf(false));
+  await Promise.all([click, done]);
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.equal(bar()?.attendance, undefined);
+  assert.ok(!take().some((call) => call.startsWith('showFailure')));
+
+  // The login page that loads next reads again, and a click works as before.
+  odoo.answer = () => attendanceOf(false);
+  await controller.refreshAttendance();
+  assert.deepEqual(bar()?.attendance, checkIn);
+});
+
+test("Odoo's own check-in button in a view reads the state, and the same route on another site asks nothing", async () => {
+  const { controller, bar, odoo } = await attendingWindow(false);
+  odoo.answer = () => attendanceOf(true);
+  await controller.attendanceSwitched('https://attacker.example/hr_attendance/systray_check_in_out');
+  assert.deepEqual(odoo.posts, []);
+  assert.deepEqual(bar()?.attendance, checkIn);
+
+  await controller.attendanceSwitched(TOGGLE);
+  assert.deepEqual(odoo.posts, [STATE]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+});
+
+test("Odoo's own check-in button follows an instance below a path prefix, whose button posts to the root", async () => {
+  const { controller, bar, odoo } = await attendingWindow(false, { ...two, baseUrl: `${B}/erp` });
+  odoo.answer = () => attendanceOf(true);
+  await controller.attendanceSwitched(TOGGLE);
+  assert.deepEqual(odoo.posts, [`${B}/erp/hr_attendance/attendance_user_data`]);
+  assert.deepEqual(bar()?.attendance, checkOut);
+});
+
+test('a saved configuration switches the button off without a request, on with a read, and follows a new instance', async () => {
+  const { controller, bar, odoo } = await attendingWindow(false);
+  controller.setConfig({ ...two, attendance: false });
+  assert.equal(bar()?.attendance, undefined);
+  await settle();
+  assert.deepEqual(odoo.posts, []);
+
+  controller.setConfig(two);
+  await settle();
+  assert.deepEqual(odoo.posts.splice(0), [STATE]);
+  assert.deepEqual(bar()?.attendance, checkIn);
+
+  const erp = 'https://erp.example.com';
+  controller.setConfig({ ...two, baseUrl: erp });
+  assert.equal(bar()?.attendance, undefined);
+  await settle();
+  assert.deepEqual(odoo.posts.splice(0), [`${erp}/hr_attendance/attendance_user_data`]);
+  assert.deepEqual(bar()?.attendance, checkIn);
+
+  // A save that changes neither the instance nor the switch asks nothing.
+  controller.setConfig({ ...two, baseUrl: erp, apps: [discuss] });
+  await settle();
+  assert.deepEqual(odoo.posts, []);
+  assert.deepEqual(bar()?.attendance, checkIn);
+});
+
+test('a new instance ends a click on its way without a word', async () => {
+  const { controller, take, bar, odoo } = await attendingWindow(true);
+  const first = deferred<unknown>();
+  odoo.answer = inTurn(first.promise);
+  const click = controller.pressAttendance();
+  odoo.answer = () => attendanceOf(false);
+  controller.setConfig({ ...two, baseUrl: 'https://erp.example.com' });
+  await settle();
+  first.resolve(attendanceOf(true));
+  await click;
+  assert.deepEqual(odoo.posts, [STATE, 'https://erp.example.com/hr_attendance/attendance_user_data']);
+  assert.deepEqual(bar()?.attendance, checkIn);
+  assert.ok(!take().some((call) => call.startsWith('showFailure')));
 });
