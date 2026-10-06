@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   expectRunningAgentApp,
+  iconCount,
   launch,
   makeUserDataDir,
   projectRoot,
@@ -15,7 +16,15 @@ import {
   waitForExit,
   writeConfig,
 } from '../support/app-process';
-import { devtoolsPort, evaluate, readBar, waitForBar, waitForPrompt } from '../support/devtools';
+import {
+  devtoolsPort,
+  evaluate,
+  eventually,
+  readBar,
+  waitForBar,
+  waitForPrompt,
+  waitForSettings,
+} from '../support/devtools';
 import { iconImages, launchInspected } from '../support/main-process';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
@@ -132,6 +141,30 @@ test('built app loads its menu bar icons from the bundle', { timeout: 60_000 }, 
     assert.notEqual(house.png, empty.png);
   } finally {
     if (app) await stop(app);
+    removeUserDataDir(userDataDir);
+  }
+});
+
+test('built app opens the settings window with every icon', { timeout: 60_000 }, async () => {
+  const userDataDir = makeUserDataDir();
+  writeConfig(userDataDir, storedConfig);
+  const app = launch(executable, ['--remote-debugging-port=0', '--lang=en'], userDataDir);
+  try {
+    const port = await devtoolsPort(userDataDir, 30_000);
+    const bar = await waitForBar(port);
+    // The timeouts let the evaluations answer before the clicks change the screen.
+    await evaluate(bar, `setTimeout(() => document.getElementById('settings').click(), 0); true`);
+    const settings = await waitForSettings(port);
+    assert.equal(await evaluate(settings, `document.querySelectorAll('#icon-grid button').length`), iconCount());
+    // A new app has no icon, so its row shows the fallback icon, which the page loads from app.asar.
+    await evaluate(settings, `setTimeout(() => document.getElementById('add').click(), 0); true`);
+    const width = `(() => {
+      const image = document.querySelector('#apps .app button.icon img');
+      return image !== null && image.complete ? image.naturalWidth : 0;
+    })()`;
+    await eventually(async () => (await evaluate(settings, width)) === 18, 'an icon image to load from the bundle');
+  } finally {
+    await stop(app);
     removeUserDataDir(userDataDir);
   }
 });
