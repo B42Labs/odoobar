@@ -1,4 +1,5 @@
 import type { ConfigErrorCode } from './config';
+import type { ShortcutStatus } from './global-shortcuts';
 
 export type Locale = 'de' | 'en';
 
@@ -22,6 +23,37 @@ export interface Messages {
     readonly loadFailed: string;
   };
   readonly menuBar: { readonly reload: string; readonly settings: string };
+  readonly settings: {
+    readonly title: string;
+    readonly general: string;
+    readonly baseUrl: string;
+    readonly launchAtLogin: string;
+    readonly apps: string;
+    readonly name: string;
+    readonly url: string;
+    readonly icon: string;
+    readonly shortcut: string;
+    readonly menuBar: string;
+    readonly record: string;
+    readonly recording: string;
+    readonly moveUp: string;
+    readonly moveDown: string;
+    readonly remove: string;
+    readonly add: string;
+    readonly shortcutHint: string;
+    readonly shortcutNotices: Readonly<Record<Exclude<ShortcutStatus, 'registered'>, string>>;
+    readonly pickIcon: string;
+    readonly searchIcons: string;
+    readonly noIcon: string;
+    readonly session: string;
+    readonly signOut: string;
+    readonly signOutHint: string;
+    readonly confirmSignOut: { readonly message: string; readonly detail: string };
+    readonly signOutFailed: string;
+    readonly save: string;
+    readonly cancel: string;
+    readonly discard: { readonly message: string; readonly discard: string; readonly keep: string };
+  };
 }
 
 const en: Messages = {
@@ -63,6 +95,42 @@ const en: Messages = {
     loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
   },
   menuBar: { reload: 'Reload', settings: 'Settings…' },
+  settings: {
+    title: 'OdooBar Settings',
+    general: 'General',
+    baseUrl: 'Address of your Odoo instance',
+    launchAtLogin: 'Start OdooBar at login',
+    apps: 'Apps',
+    name: 'Name',
+    url: 'Address',
+    icon: 'Icon',
+    shortcut: 'Shortcut',
+    menuBar: 'Show in menu bar',
+    record: 'Record',
+    recording: 'Press the shortcut…',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    remove: 'Remove',
+    add: 'Add app',
+    shortcutHint:
+      'macOS does not tell OdooBar when another program uses a shortcut. If a shortcut does not respond, choose another one.',
+    shortcutNotices: {
+      invalid: 'This is not a valid shortcut.',
+      duplicate: 'An app further up already has this shortcut, and it works only there.',
+      refused: 'macOS refused this shortcut.',
+    },
+    pickIcon: 'Choose an icon',
+    searchIcons: 'Search icons',
+    noIcon: 'No icon',
+    session: 'Session',
+    signOut: 'Sign out',
+    signOutHint: 'Deletes everything the Odoo pages stored on this Mac, the login included. The configuration stays.',
+    confirmSignOut: { message: 'Sign out of Odoo?', detail: 'Every app shows the Odoo login page again.' },
+    signOutFailed: 'OdooBar could not sign out: {reason}',
+    save: 'Save',
+    cancel: 'Cancel',
+    discard: { message: 'Discard the unsaved changes?', discard: 'Discard', keep: 'Keep editing' },
+  },
 };
 
 const de: Messages = {
@@ -105,6 +173,43 @@ const de: Messages = {
     loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
   },
   menuBar: { reload: 'Neu laden', settings: 'Einstellungen …' },
+  settings: {
+    title: 'OdooBar-Einstellungen',
+    general: 'Allgemein',
+    baseUrl: 'Adresse deiner Odoo-Instanz',
+    launchAtLogin: 'OdooBar bei der Anmeldung starten',
+    apps: 'Apps',
+    name: 'Name',
+    url: 'Adresse',
+    icon: 'Symbol',
+    shortcut: 'Kürzel',
+    menuBar: 'In Menüleiste anzeigen',
+    record: 'Aufnehmen',
+    recording: 'Kürzel drücken …',
+    moveUp: 'Nach oben',
+    moveDown: 'Nach unten',
+    remove: 'Entfernen',
+    add: 'App hinzufügen',
+    shortcutHint:
+      'macOS teilt OdooBar nicht mit, ob ein anderes Programm ein Kürzel verwendet. Reagiert ein Kürzel nicht, wähle ein anderes.',
+    shortcutNotices: {
+      invalid: 'Das ist kein gültiges Kürzel.',
+      duplicate: 'Eine App weiter oben hat dieses Kürzel schon, es gilt nur dort.',
+      refused: 'macOS hat dieses Kürzel abgelehnt.',
+    },
+    pickIcon: 'Symbol wählen',
+    searchIcons: 'Symbole durchsuchen',
+    noIcon: 'Kein Symbol',
+    session: 'Sitzung',
+    signOut: 'Abmelden',
+    signOutHint:
+      'Löscht alles, was die Odoo-Seiten auf diesem Mac gespeichert haben, auch die Anmeldung. Die Konfiguration bleibt erhalten.',
+    confirmSignOut: { message: 'Von Odoo abmelden?', detail: 'Jede App zeigt danach wieder die Odoo-Anmeldeseite.' },
+    signOutFailed: 'OdooBar konnte nicht abmelden: {reason}',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
+    discard: { message: 'Ungespeicherte Änderungen verwerfen?', discard: 'Verwerfen', keep: 'Weiter bearbeiten' },
+  },
 };
 
 /** German for a German language tag such as de-AT, English for every other tag. */
