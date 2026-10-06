@@ -51,6 +51,7 @@ async function start(): Promise<void> {
     controller.setConfig(config);
     menuBar.setConfig(config);
     shortcuts.setConfig(config);
+    syncLoginItem(app, config.launchAtLogin);
   });
   // Starting OdooBar again is the way to the window: a process started
   // directly ends on the single-instance lock, and Finder reopens this one.
