@@ -4,7 +4,6 @@ import type { ChildProcess } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  launch,
   macOnly,
   makeUserDataDir,
   projectRoot,
@@ -55,8 +54,8 @@ interface Running {
 }
 
 /**
- * Starts OdooBar on `userDataDir`, starts it again so the window opens, and
- * returns once the app bar is drawn. The caller stops `app`.
+ * Starts OdooBar on `userDataDir` and returns once the app bar is drawn. The
+ * caller stops `app`.
  */
 async function openWindow(userDataDir: string, started: (app: ChildProcess) => void): Promise<Running> {
   const { app, main } = await launchInspected(
@@ -67,12 +66,6 @@ async function openWindow(userDataDir: string, started: (app: ChildProcess) => v
   started(app);
   await captureController(main);
   const port = await devtoolsPort(userDataDir, 30_000);
-  const again = launch(electronBinary, [projectRoot], userDataDir);
-  try {
-    assert.equal(await waitForExit(again, 15_000), 0);
-  } finally {
-    await stop(again);
-  }
   return { app, main, port, bar: await waitForBar(port) };
 }
 

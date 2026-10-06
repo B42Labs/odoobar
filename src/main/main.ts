@@ -4,7 +4,7 @@ import { ConfigStore } from './config-store';
 import { GlobalShortcuts } from './global-shortcuts';
 import { createGlobalShortcutsUi } from './global-shortcuts-ui';
 import { startApp } from './lifecycle';
-import { syncLoginItem } from './login-item';
+import { startedAtLogin, syncLoginItem } from './login-item';
 import { MenuBar } from './menu-bar';
 import { createMenuBarUi } from './menu-bar-ui';
 import { messagesFor, pickLocale } from './messages';
@@ -42,8 +42,9 @@ async function start(): Promise<void> {
   // directly ends on the single-instance lock, and Finder reopens this one.
   app.on('second-instance', () => controller.show());
   app.on('activate', () => controller.show());
-  // A first start goes on to the Odoo login page. Every later start stays hidden.
-  if (result.created) controller.show();
+  // A start by the user opens the window, and a first start goes on to the Odoo
+  // login page. Only the start that macOS makes at login stays hidden.
+  if (result.created || !startedAtLogin(app)) controller.show();
 }
 
 if (startApp(app)) {

@@ -1,20 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { syncLoginItem, type LoginItemApp } from '../../src/main/login-item';
+import { startedAtLogin, syncLoginItem, type LoginItemApp } from '../../src/main/login-item';
 
-/** Stands in for macOS and records what syncLoginItem asks of it. */
+/** Stands in for macOS and records what this module asks of it. */
 function fakeApp({
   openAtLogin = false,
+  wasOpenedAtLogin = false,
   isPackaged = true,
   userDataDir = false,
-}: { openAtLogin?: boolean; isPackaged?: boolean; userDataDir?: boolean } = {}) {
+}: { openAtLogin?: boolean; wasOpenedAtLogin?: boolean; isPackaged?: boolean; userDataDir?: boolean } = {}) {
   const calls: string[] = [];
   const app: LoginItemApp = {
     isPackaged,
     commandLine: { hasSwitch: (name) => userDataDir && name === 'user-data-dir' },
     getLoginItemSettings() {
       calls.push('get');
-      return { openAtLogin };
+      return { openAtLogin, wasOpenedAtLogin };
     },
     setLoginItemSettings(settings) {
       calls.push(`set:${settings.openAtLogin}`);
@@ -53,4 +54,9 @@ test('never touches the login item under --user-data-dir', () => {
   const { app, calls } = fakeApp({ userDataDir: true });
   syncLoginItem(app, true);
   assert.deepEqual(calls, []);
+});
+
+test('tells a start that macOS made at login apart from a start by the user', () => {
+  assert.equal(startedAtLogin(fakeApp({ openAtLogin: true, wasOpenedAtLogin: true }).app), true);
+  assert.equal(startedAtLogin(fakeApp({ openAtLogin: true, wasOpenedAtLogin: false }).app), false);
 });

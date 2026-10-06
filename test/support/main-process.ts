@@ -213,11 +213,6 @@ export async function holdsShortcut(main: Page, accelerator: string): Promise<bo
   )) as boolean;
 }
 
-/** How many windows OdooBar has, hidden ones included. */
-export async function windowCount(main: Page): Promise<number> {
-  return (await evaluate(main, `${electron}.BrowserWindow.getAllWindows().length`)) as number;
-}
-
 /**
  * Keeps every menu bar icon that gets its tooltip from now on: menu-bar-ui.ts
  * sets exactly one on each Tray, and the Tray export of electron cannot be

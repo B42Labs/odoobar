@@ -96,8 +96,8 @@ interface Running {
 
 /**
  * Runs OdooBar with the configuration that `config` returns for the address
- * of a fresh OdooServer, starts it again so the window opens, and passes
- * everything to `run` once the app bar is drawn.
+ * of a fresh OdooServer and passes everything to `run` once the app bar is
+ * drawn.
  */
 async function withWindow(config: (baseUrl: string) => string, run: (running: Running) => Promise<void>): Promise<void> {
   const server = await startOdooServer();
@@ -113,7 +113,6 @@ async function withWindow(config: (baseUrl: string) => string, run: (running: Ru
     app = inspected.app;
     await recordDesktopCalls(inspected.main);
     const port = await devtoolsPort(userDataDir, 30_000);
-    await startAgain(userDataDir);
     const bar = await waitForBar(port);
     await run({ server, userDataDir, app, main: inspected.main, port, bar });
   } finally {
@@ -151,18 +150,13 @@ test('a first start opens the window on the first app and loads no other', macOn
   }
 });
 
-test('a later start opens no window until OdooBar is started again', macOnly, async () => {
+test('a later start opens the window on the first app and loads no other', macOnly, async () => {
   const server = await startOdooServer();
   const userDataDir = makeUserDataDir();
   writeConfig(userDataDir, twoApps(server.baseUrl));
   const app = launch(electronBinary, [projectRoot, '--remote-debugging-port=0', '--lang=en'], userDataDir);
   try {
     const port = await devtoolsPort(userDataDir, 30_000);
-    await sleep(2_000);
-    assert.deepEqual(await listPages(port), []);
-    assert.deepEqual(server.requests, []);
-
-    await startAgain(userDataDir);
     const bar = await waitForBar(port);
     await waitForPage(port, '/odoo/crm', 5_000);
     const state = await readBar(bar);
