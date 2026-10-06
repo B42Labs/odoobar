@@ -24,7 +24,7 @@ function entry(id: string, name: string, shortcut = ''): AppConfig {
 
 const home = entry('home', 'Home');
 const crm = entry('crm', 'CRM', 'Control+Alt+C');
-const two: Config = { baseUrl: B, launchAtLogin: false, apps: [home, crm] };
+const two: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: [home, crm] };
 
 /**
  * Settings on a screen and a rest of OdooBar that record every call as text.
@@ -192,6 +192,7 @@ test('save writes a valid draft and returns the saved state', () => {
   const saved: Config = {
     baseUrl: B,
     launchAtLogin: true,
+    attendance: true,
     apps: [home, { id: 'crm', name: 'CRM', url: '/odoo/crm', icon: '', shortcut: 'Contrl+D', menuBar: false }],
   };
   world.save = (next) => {
@@ -246,7 +247,7 @@ test('save takes an empty app list and a draft without apps', () => {
   });
   assert.deepEqual(settings.save({ baseUrl: B }), {
     ok: true,
-    state: { config: { baseUrl: B, launchAtLogin: false, apps: [] }, notices: {}, texts: en.settings },
+    state: { config: { baseUrl: B, launchAtLogin: false, attendance: true, apps: [] }, notices: {}, texts: en.settings },
   });
 });
 

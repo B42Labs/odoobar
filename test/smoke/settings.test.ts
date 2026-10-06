@@ -77,7 +77,12 @@ const timesheets = entry('timesheets', 'Timesheets', { icon: 'clock' });
 const discuss = entry('discuss', 'Discuss', { icon: 'messages-square', shortcut: F13, menuBar: false });
 
 /** A configuration with Home, Timesheets, and Discuss, of which only Discuss has a shortcut. */
-const threeApps = (baseUrl: string) => ({ baseUrl, launchAtLogin: true, apps: [home, timesheets, discuss] });
+const threeApps = (baseUrl: string) => ({
+  baseUrl,
+  launchAtLogin: true,
+  attendance: true,
+  apps: [home, timesheets, discuss],
+});
 
 /** The selector of the row of the app at `index`. */
 const row = (index: number) => `#apps .app:nth-child(${index + 1})`;
@@ -305,6 +310,7 @@ test('saving writes the edited configuration, and the window, the menu bar, the 
       const saved = {
         baseUrl: server.baseUrl,
         launchAtLogin: true,
+        attendance: true,
         apps: [timesheets, { ...home, name: 'Start' }, crm],
       };
       assert.equal(readFileSync(file, 'utf8'), serializeConfig(saved));

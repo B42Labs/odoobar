@@ -17,7 +17,7 @@ function entry(id: string, shortcut: string): AppConfig {
 const crm = entry('crm', 'Control+Alt+C');
 const discuss = entry('discuss', '');
 const calendar = entry('calendar', 'Control+Alt+K');
-const three: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss, calendar] };
+const three: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: [crm, discuss, calendar] };
 
 /**
  * A system that records every call and answers each register with `answer`.

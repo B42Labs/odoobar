@@ -19,7 +19,7 @@ function entry(id: string, name: string, url: string): AppConfig {
 
 const crm = entry('crm', 'CRM', '/odoo/crm');
 const discuss = entry('discuss', 'Discuss', '/odoo/discuss');
-const two: Config = { baseUrl: B, launchAtLogin: false, apps: [crm, discuss] };
+const two: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: [crm, discuss] };
 
 /** Where the window of fakeWindow is, once it was shown. */
 const PLACE = { x: 1920, y: 25, width: 1200, height: 800 };
@@ -127,7 +127,7 @@ test('show brings up the window and loads only the first app', () => {
 
 test('show resolves a path against the base URL and keeps a full URL', () => {
   const other = entry('other', 'Other', 'https://other.example.com/x?y=1');
-  const { controller, take } = fakeWindow({ baseUrl: `${B}/prefix`, launchAtLogin: false, apps: [other, crm] });
+  const { controller, take } = fakeWindow({ ...two, baseUrl: `${B}/prefix`, apps: [other, crm] });
   controller.show();
   assert.deepEqual(take(), ['showWindow', 'openView other https://other.example.com/x?y=1', 'showView other']);
   controller.selectApp('crm');
