@@ -15,6 +15,8 @@ import { Settings } from './settings';
 import { createSettingsUi } from './settings-ui';
 import { loadOrCreateConfig } from './startup';
 import { createStartupUi } from './startup-ui';
+import { watchForUpdates } from './updates';
+import { fetchReleaseJson } from './updates-ui';
 import { WindowController } from './window';
 import { createDesktop, createWindowUi, fetchOdooJson } from './window-ui';
 
@@ -56,6 +58,7 @@ async function start(): Promise<void> {
     messages,
   );
   showAppMenu(messages, () => settings.open());
+  watchForUpdates(app, { fetchJson: fetchReleaseJson, found: (update) => controller.setUpdate(update) });
   store.onChange((config) => {
     controller.setConfig(config);
     menuBar.setConfig(config);

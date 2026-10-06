@@ -1,28 +1,51 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isNewer, LATEST_RELEASE_URL, parseVersion, updateFrom, Updates, type Update } from '../../src/main/updates';
+import { setImmediate } from 'node:timers/promises';
+import {
+  CHECK_INTERVAL_MS,
+  isNewer,
+  LATEST_RELEASE_URL,
+  parseVersion,
+  updateFrom,
+  Updates,
+  watchForUpdates,
+  type Update,
+  type UpdatesDeps,
+} from '../../src/main/updates';
 
 const release020: Update = { version: '0.2.0', url: 'https://github.com/B42Labs/odoobar/releases/tag/v0.2.0' };
 
 /**
- * Updates for the installed version 0.1.0, whose requests give what `answer`
+ * The network side of the update check, whose requests give what `answer`
  * gives. `asked` holds every address it asked for, and `found` every update
  * it reported.
  */
-function fakeUpdates(answer: () => Promise<unknown>) {
+function fakeDeps(answer: () => Promise<unknown>) {
   const asked: string[] = [];
   const found: Update[] = [];
-  const updates = new Updates(
-    {
-      fetchJson: (url) => {
-        asked.push(url);
-        return answer();
-      },
-      found: (update) => found.push(update),
+  const deps: UpdatesDeps = {
+    fetchJson: (url) => {
+      asked.push(url);
+      return answer();
     },
-    '0.1.0',
-  );
-  return { updates, asked, found };
+    found: (update) => found.push(update),
+  };
+  return { deps, asked, found };
+}
+
+/** Updates for the installed version 0.1.0 on fakeDeps. */
+function fakeUpdates(answer: () => Promise<unknown>) {
+  const { deps, asked, found } = fakeDeps(answer);
+  return { updates: new Updates(deps, '0.1.0'), asked, found };
+}
+
+/** Stands in for Electron's app at version 0.1.0. By default it is the installed app, started without --user-data-dir. */
+function fakeApp({ isPackaged = true, userDataDir = false } = {}) {
+  return {
+    isPackaged,
+    commandLine: { hasSwitch: (name: string) => userDataDir && name === 'user-data-dir' },
+    getVersion: () => '0.1.0',
+  };
 }
 
 test('parseVersion reads a version and a tag, and nothing else', () => {
@@ -134,4 +157,30 @@ test('check logs an error of found and reports the release again on the next che
   fail = false;
   await updates.check();
   assert.deepEqual(found, [release020]);
+});
+
+test('watchForUpdates checks at the start and every CHECK_INTERVAL_MS in the installed app', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const { deps, asked, found } = fakeDeps(async () => ({ tag_name: 'v0.2.0' }));
+  watchForUpdates(fakeApp(), deps);
+  assert.deepEqual(asked, [LATEST_RELEASE_URL]);
+  await setImmediate();
+  assert.deepEqual(found, [release020]);
+
+  t.mock.timers.tick(CHECK_INTERVAL_MS - 1);
+  assert.deepEqual(asked, [LATEST_RELEASE_URL]);
+  t.mock.timers.tick(1);
+  assert.deepEqual(asked, [LATEST_RELEASE_URL, LATEST_RELEASE_URL]);
+});
+
+test('watchForUpdates never asks GitHub in the development app or under --user-data-dir', (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const askedBy = (app: ReturnType<typeof fakeApp>) => {
+    const { deps, asked } = fakeDeps(async () => ({ tag_name: 'v0.2.0' }));
+    watchForUpdates(app, deps);
+    t.mock.timers.tick(CHECK_INTERVAL_MS);
+    return asked;
+  };
+  assert.deepEqual(askedBy(fakeApp({ isPackaged: false })), []);
+  assert.deepEqual(askedBy(fakeApp({ userDataDir: true })), []);
 });
