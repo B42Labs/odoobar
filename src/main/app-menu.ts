@@ -1,7 +1,10 @@
 import { fill, type Messages } from './messages';
 
+/** The owner and name of the repository of OdooBar on GitHub. */
+export const REPOSITORY = 'B42Labs/odoobar';
+
 /** Where the source code of OdooBar lives. The About dialog links to it. */
-export const REPOSITORY_URL = 'https://github.com/B42Labs/odoobar';
+export const REPOSITORY_URL = `https://github.com/${REPOSITORY}`;
 
 /**
  * One entry of the app menu, in the form of Electron's menu template. This

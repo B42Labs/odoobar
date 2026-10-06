@@ -1,10 +1,10 @@
+import { isInstalledRun, type InstalledApp } from './installed-run';
+
 /**
  * The part of Electron's `app` that this module uses. It never imports
  * electron, so its unit tests run in plain Node.js.
  */
-export interface LoginItemApp {
-  readonly isPackaged: boolean;
-  readonly commandLine: { hasSwitch(name: string): boolean };
+export interface LoginItemApp extends InstalledApp {
   getLoginItemSettings(): { openAtLogin: boolean; wasOpenedAtLogin: boolean };
   setLoginItemSettings(settings: { openAtLogin: boolean }): void;
 }
@@ -15,7 +15,7 @@ export interface LoginItemApp {
  * it, and a login item that already matches is left alone.
  */
 export function syncLoginItem(app: LoginItemApp, launchAtLogin: boolean): void {
-  if (!app.isPackaged || app.commandLine.hasSwitch('user-data-dir')) return;
+  if (!isInstalledRun(app)) return;
   if (app.getLoginItemSettings().openAtLogin === launchAtLogin) return;
   app.setLoginItemSettings({ openAtLogin: launchAtLogin });
 }
