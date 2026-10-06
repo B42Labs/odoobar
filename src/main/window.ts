@@ -1,6 +1,7 @@
 import { resolveAppUrl, type Config } from './config';
 import { fill, type Messages } from './messages';
-import { linkTarget } from './navigation';
+import { appKey, isInsideInstance, linkTarget } from './navigation';
+import { loadOdooApps, type OdooApp } from './odoo-apps';
 import type { Shortcut } from './shortcuts';
 import type { Update } from './updates';
 
@@ -9,7 +10,8 @@ export type Direction = 'back' | 'forward';
 
 /** What the app bar page shows. The main process sends it whole after every change. */
 export interface BarState {
-  readonly apps: readonly { readonly id: string; readonly name: string }[];
+  /** `close` names the button that takes the app off the bar. undefined for an app of the configuration, which has none. */
+  readonly apps: readonly { readonly id: string; readonly name: string; readonly close: string | undefined }[];
   readonly activeId: string | undefined;
   /** Which of the buttons that go back, go forward, and reload act on the active app. The others are greyed out. */
   readonly nav: { readonly back: boolean; readonly forward: boolean; readonly reload: boolean };
@@ -66,6 +68,11 @@ export interface Desktop {
   openExternal(url: string): void;
   /** Opens the settings window. */
   openSettings(): void;
+  /**
+   * Fetches an address with the login of the views and gives the JSON
+   * document of the answer, or undefined for an answer that holds none.
+   */
+  fetchJson(url: string): Promise<unknown>;
 }
 
 interface App {
@@ -84,10 +91,20 @@ function appsOf(config: Config): App[] {
  * visible window and lives until OdooBar quits, the configuration drops or
  * changes its app, a sign-out clears the profile, or its page closes itself.
  * A closed view of the active app opens again at the start address.
+ *
+ * The bar lists the apps of the configuration and, behind them, the apps
+ * that a link opened (followLink). Those are listed nowhere else, and each
+ * stays until its close button, a sign-out, or the end of OdooBar.
  */
 export class WindowController {
   private baseUrl: string;
   private apps: App[];
+  /** The apps that a link opened, in the order of their opening. */
+  private extras: App[] = [];
+  private extraCount = 0;
+  /** The apps of the Odoo account with their full start addresses, as far as the instance has named them. */
+  private known: readonly Pick<App, 'name' | 'url'>[] = [];
+  private learning = 0;
   private active: string | undefined;
   private visible = false;
   private readonly open = new Set<string>();
@@ -121,9 +138,14 @@ export class WindowController {
     this.ui.hideWindow();
   }
 
+  /** Every app of the bar: the ones of the configuration, then the ones that a link opened. */
+  private get listed(): App[] {
+    return [...this.apps, ...this.extras];
+  }
+
   /** Makes an app the active one. An unknown id and the active app change nothing. */
   selectApp(id: string): void {
-    if (id === this.active || !this.apps.some((app) => app.id === id)) return;
+    if (id === this.active || !this.listed.some((app) => app.id === id)) return;
     this.active = id;
     this.present();
   }
@@ -135,7 +157,7 @@ export class WindowController {
    * changes nothing.
    */
   toggleApp(id: string): void {
-    if (!this.apps.some((app) => app.id === id)) return;
+    if (!this.listed.some((app) => app.id === id)) return;
     if (this.visible && id === this.active && this.ui.isWindowFocused()) return this.hide();
     this.active = id;
     this.show();
@@ -144,10 +166,25 @@ export class WindowController {
   /** A click in the app bar. On the active app it loads the start address again, which is the way back from any page. */
   pressApp(id: string): void {
     if (id !== this.active) return this.selectApp(id);
-    const app = this.apps.find((candidate) => candidate.id === id);
+    const app = this.listed.find((candidate) => candidate.id === id);
     if (!app) return;
     this.failures.delete(id);
     if (this.open.has(id)) this.ui.loadView(id, app.url);
+    this.present();
+  }
+
+  /**
+   * The close button of an app that a link opened. The app leaves the bar,
+   * and its view goes with it. Was it the active app, the one behind it
+   * takes its place, or else the one before it. An app of the configuration
+   * stays, since only the settings remove it.
+   */
+  closeApp(id: string): void {
+    const index = this.extras.findIndex((app) => app.id === id);
+    if (index < 0) return;
+    this.dropView(id);
+    this.extras.splice(index, 1);
+    if (id === this.active) this.active = (this.extras[index] ?? this.extras[index - 1] ?? this.apps.at(-1))?.id;
     this.present();
   }
 
@@ -215,7 +252,7 @@ export class WindowController {
   handleShortcut(shortcut: Shortcut): void {
     switch (shortcut.kind) {
       case 'select': {
-        const app = this.apps[shortcut.index];
+        const app = this.listed[shortcut.index];
         if (app) this.selectApp(app.id);
         return;
       }
@@ -228,17 +265,56 @@ export class WindowController {
     }
   }
 
-  /** A link in the view of `id` asked for a new window or tab, or for an address that is not http(s). */
+  /**
+   * A link in the view of `id` asked for a new window or tab, or for an
+   * address that is not http(s). A link inside the instance loads in the
+   * view, unless it opens another app as followLink describes it.
+   */
   openLink(id: string, url: string): void {
     switch (linkTarget(this.baseUrl, url)) {
       case 'view':
-        if (this.open.has(id)) this.ui.loadView(id, url);
+        if (this.open.has(id) && !this.openApp(id, url)) this.ui.loadView(id, url);
         return;
       case 'browser':
         return this.desktop.openExternal(url);
       case 'drop':
         return;
     }
+  }
+
+  /**
+   * A click on a link to `url` in the view of `id`, whose page is at
+   * `pageUrl`, before that page hears of it. A link to the start address of
+   * another app of the bar makes that app the active one, with the page it
+   * has. A link to the start address of an app that the Odoo account has and
+   * the bar lacks adds the app behind the others and makes it the active one.
+   * True means that the click is taken and the page must not follow the link.
+   * False leaves the link to the page: any other link, the link to the app of
+   * this view, a link on a page outside the instance, and a link in a view
+   * that the user does not see.
+   */
+  followLink(id: string, pageUrl: string, url: string): boolean {
+    return this.open.has(id) && isInsideInstance(this.baseUrl, pageUrl) && this.openApp(id, url);
+  }
+
+  /**
+   * A view finished loading a page. The account may have changed with it, as
+   * a login does, so the instance is asked for the apps of the account, which
+   * followLink then knows. An instance that does not answer changes nothing.
+   * Resolves once the answer is taken in.
+   */
+  async pageLoaded(): Promise<void> {
+    const request = ++this.learning;
+    const baseUrl = this.baseUrl;
+    let apps: OdooApp[] | undefined;
+    try {
+      apps = await loadOdooApps(baseUrl, (url) => this.desktop.fetchJson(url));
+    } catch {
+      return;
+    }
+    // A later page, a sign-out, or another instance has made this answer an old one.
+    if (request !== this.learning) return;
+    this.known = (apps ?? []).map(({ name, url }) => ({ name, url: resolveAppUrl(baseUrl, url) }));
   }
 
   /**
@@ -269,7 +345,8 @@ export class WindowController {
    * Deletes the login with everything else the pages stored. Every view
    * closes first, so no page writes while the profile is cleared, and no view
    * opens until that is done. The active app then opens again, on the Odoo
-   * login page. A call during a sign-out joins it. Rejects with the error of
+   * login page. The apps that a link opened leave the bar, and the first app
+   * takes the place of an active one. A call during a sign-out joins it. Rejects with the error of
    * clearProfile. The settings window calls it.
    */
   signOut(): Promise<void> {
@@ -277,6 +354,10 @@ export class WindowController {
     for (const id of this.open) this.ui.closeView(id);
     this.open.clear();
     this.failures.clear();
+    // The next login may be another account, with other apps.
+    if (this.extras.some((app) => app.id === this.active)) this.active = this.apps[0]?.id;
+    this.extras = [];
+    this.forgetKnown();
     // The async function turns an error that clearProfile throws into a rejection.
     const signingOut = (async () => this.ui.clearProfile())().finally(() => {
       this.signingOut = undefined;
@@ -289,28 +370,79 @@ export class WindowController {
 
   /**
    * Takes over a saved configuration. A view survives when its app is still
-   * listed with the same address. The active app stays active when it is
-   * still listed, otherwise the first app is.
+   * listed with the same address. An app that a link opened stays, unless the
+   * instance changed or the configuration now lists the app itself, by its
+   * start address or under the same id. That app of the configuration then
+   * takes the place of an active one. Otherwise the active app stays active
+   * when it is still listed, and the first app is when it is not.
    */
   setConfig(config: Config): void {
     const apps = appsOf(config);
+    const sameInstance = config.baseUrl === this.baseUrl;
+    const configured = (extra: App) =>
+      apps.find((app) => app.id === extra.id || appKey(app.url) === appKey(extra.url));
+    const extras = this.extras.filter((extra) => sameInstance && !configured(extra));
+    const active = this.extras.find((extra) => extra.id === this.active);
     for (const id of [...this.open]) {
       const before = this.apps.find((app) => app.id === id);
       const after = apps.find((app) => app.id === id);
       if (before && after && before.url === after.url) continue;
-      this.ui.closeView(id);
-      this.open.delete(id);
-      this.failures.delete(id);
+      if (extras.some((extra) => extra.id === id)) continue;
+      this.dropView(id);
     }
+    if (!sameInstance) this.forgetKnown();
     this.baseUrl = config.baseUrl;
     this.apps = apps;
-    if (!apps.some((app) => app.id === this.active)) this.active = apps[0]?.id;
+    this.extras = extras;
+    if (active && !extras.includes(active)) this.active = (sameInstance ? configured(active) : undefined)?.id;
+    if (!this.listed.some((app) => app.id === this.active)) this.active = apps[0]?.id;
     this.present();
+  }
+
+  /**
+   * Makes the app that `url` opens the active one, for a link in the view of
+   * `from`. Returns false and changes nothing for a link that opens no app,
+   * for the app of `from` itself, and for a view that is not the active one,
+   * so no page in the background moves the user away from what they see.
+   */
+  private openApp(from: string, url: string): boolean {
+    const key = appKey(url);
+    if (key === undefined || from !== this.active) return false;
+    let app = this.listed.find((candidate) => appKey(candidate.url) === key);
+    if (!app) {
+      const known = this.known.find((candidate) => appKey(candidate.url) === key);
+      if (!known) return false;
+      app = { id: this.extraId(), name: known.name, url: known.url };
+      this.extras.push(app);
+    }
+    if (app.id === from) return false;
+    this.selectApp(app.id);
+    return true;
+  }
+
+  /** An id that no app of the bar has. A later configuration may take it, and setConfig then drops the opened app. */
+  private extraId(): string {
+    for (;;) {
+      const id = `opened-${++this.extraCount}`;
+      if (!this.apps.some((app) => app.id === id)) return id;
+    }
+  }
+
+  /** Closes the view of an app, if it has one, and drops the notice of its page. */
+  private dropView(id: string): void {
+    if (this.open.delete(id)) this.ui.closeView(id);
+    this.failures.delete(id);
+  }
+
+  /** The apps of the account are those of another login or instance now. An answer on its way is dropped as well. */
+  private forgetKnown(): void {
+    this.learning++;
+    this.known = [];
   }
 
   private barState(): BarState {
     const { appBar } = this.messages;
-    const app = this.apps.find((candidate) => candidate.id === this.active);
+    const app = this.listed.find((candidate) => candidate.id === this.active);
     const failure = app && this.failures.get(app.id);
     let notice: BarState['notice'];
     if (!app) notice = { text: appBar.noApps, retry: false };
@@ -321,7 +453,10 @@ export class WindowController {
     const viewId = app && this.open.has(app.id) ? app.id : undefined;
     const version = this.update?.version;
     return {
-      apps: this.apps.map(({ id, name }) => ({ id, name })),
+      apps: [
+        ...this.apps.map(({ id, name }) => ({ id, name, close: undefined })),
+        ...this.extras.map(({ id, name }) => ({ id, name, close: fill(appBar.close, { name }) })),
+      ],
       activeId: this.active,
       nav: {
         back: viewId !== undefined && this.ui.canGo(viewId, 'back'),
@@ -345,7 +480,7 @@ export class WindowController {
 
   /** Brings the screen in line with the state. A hidden window gets no view, and neither does a sign-out in progress. */
   private present(): void {
-    const app = this.apps.find((candidate) => candidate.id === this.active);
+    const app = this.listed.find((candidate) => candidate.id === this.active);
     if (this.visible) {
       if (app && !this.open.has(app.id) && !this.signingOut) {
         this.ui.openView(app.id, app.url);

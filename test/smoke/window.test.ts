@@ -44,7 +44,7 @@ import {
   resizeWindow,
   showUpdate,
 } from '../support/main-process';
-import { startOdooServer, type OdooServer } from '../support/odoo-server';
+import { startOdooServer, type OdooServer, type OdooServerOptions } from '../support/odoo-server';
 
 let electronBinary = '';
 
@@ -104,8 +104,12 @@ interface Running {
  * of a fresh OdooServer and passes everything to `run` once the app bar is
  * drawn.
  */
-async function withWindow(config: (baseUrl: string) => string, run: (running: Running) => Promise<void>): Promise<void> {
-  const server = await startOdooServer();
+async function withWindow(
+  config: (baseUrl: string) => string,
+  run: (running: Running) => Promise<void>,
+  options: OdooServerOptions = {},
+): Promise<void> {
+  const server = await startOdooServer(0, options);
   const userDataDir = makeUserDataDir();
   let app: ChildProcess | undefined;
   try {
@@ -461,6 +465,103 @@ test('a link to a new tab loads in the view inside the instance and opens the br
     assert.equal((await listPages(port)).length, 2);
     assert.equal(await evaluate(linked, 'location.pathname'), '/odoo/linked');
   });
+});
+
+/** The menu document of an Odoo whose account has CRM, Discuss, and an app of its own without a path. */
+const menus = {
+  root: { id: 'root', children: [235, 83, 900] },
+  '235': { id: 235, name: 'CRM', xmlid: 'crm.crm_menu_root', actionID: 394, actionPath: 'crm' },
+  '83': { id: 83, name: 'Discuss', xmlid: 'mail.menu_root_discuss', actionID: 137, actionPath: 'discuss' },
+  '900': { id: 900, name: 'Fleet of ours', xmlid: 'ours.menu_root', actionID: 1500, actionPath: false },
+};
+
+/**
+ * Adds a link with this id to the page, as Odoo draws an app on its home
+ * page: its script keeps the browser from following the link and moves to
+ * the address without loading a document.
+ */
+function addAppLink(page: Page, id: string, href: string): Promise<unknown> {
+  return evaluate(
+    page,
+    `(() => {
+      const link = document.createElement('a');
+      link.id = ${JSON.stringify(id)};
+      link.href = ${JSON.stringify(href)};
+      link.append(document.createElement('span'));
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        history.pushState(null, '', link.href);
+      });
+      document.body.append(link);
+      return true;
+    })()`,
+  );
+}
+
+test('a link to another app shows that app, and one to an app that the bar lacks adds it until it is closed', macOnly, async () => {
+  await withWindow(
+    twoApps,
+    async ({ server, port, bar }) => {
+      const pathOf = (page: Page) => evaluate(page, 'location.pathname');
+      const crm = await loadedPage(port, '/odoo/crm');
+      await addAppLink(crm, 'record', '/odoo/crm/7');
+      await addAppLink(crm, 'own', '/odoo/crm');
+      await addAppLink(crm, 'discuss', '/odoo/discuss');
+      await addAppLink(crm, 'fleet', '/odoo/action-1500');
+
+      // A link that opens no other app is left to the page, and so is the one to the app of the view.
+      await click(crm, '#record');
+      await eventually(async () => (await pathOf(crm)) === '/odoo/crm/7', 'the page to follow its own link');
+      await click(crm, '#own span');
+      await eventually(async () => (await pathOf(crm)) === '/odoo/crm', 'the page to follow the link to its app');
+      assert.equal(activeApp(await readBar(bar)), 'crm');
+
+      // The page of CRM never hears of the click on the link to Discuss.
+      await click(crm, '#discuss span');
+      await eventually(() => isActive(bar, 'discuss'), 'Discuss to be active');
+      const discuss = await loadedPage(port, '/odoo/discuss');
+      assert.equal(await pathOf(crm), '/odoo/crm');
+      assert.equal(await evaluate(crm, 'document.visibilityState'), 'hidden');
+      assert.deepEqual(server.requests, ['/odoo/crm', '/odoo/discuss']);
+
+      // The window asked for the apps of the account after the page of CRM, and the answer is long there.
+      assert.equal(server.menuRequests[0], '/web/webclient/load_menus');
+      await addAppLink(discuss, 'fleet', '/odoo/action-1500');
+      await click(discuss, '#fleet');
+      await eventually(async () => (await readBar(bar)).apps.length === 3, 'the app of the account in the bar');
+      const fleet = await loadedPage(port, '/odoo/action-1500');
+      assert.deepEqual((await readBar(bar)).apps, [
+        { id: 'crm', name: 'CRM', active: false },
+        { id: 'discuss', name: 'Discuss', active: false },
+        { id: 'opened-1', name: 'Fleet of ours', active: true },
+      ]);
+      assert.equal(await pathOf(discuss), '/odoo/discuss');
+      assert.equal(await evaluate(fleet, 'document.visibilityState'), 'visible');
+      // Only the app that the link added has a button that closes it.
+      assert.deepEqual(
+        await evaluate(bar, `[...document.querySelectorAll('#apps .close')].map((close) => [close.dataset.closeId, close.title])`),
+        [['opened-1', 'Close Fleet of ours']],
+      );
+
+      // The link in CRM leads to the app in the bar and loads nothing.
+      await click(bar, '[data-app-id="crm"]');
+      await eventually(() => isActive(bar, 'crm'), 'CRM to be active');
+      await click(crm, '#fleet');
+      await eventually(() => isActive(bar, 'opened-1'), 'the added app to be active');
+      assert.equal(await pathOf(crm), '/odoo/crm');
+      assert.deepEqual(server.requests, ['/odoo/crm', '/odoo/discuss', '/odoo/action-1500']);
+
+      await click(bar, '[data-close-id="opened-1"]');
+      await eventually(async () => (await listPages(port)).length === 3, 'the view of the added app to close');
+      assert.deepEqual((await readBar(bar)).apps, [
+        { id: 'crm', name: 'CRM', active: false },
+        { id: 'discuss', name: 'Discuss', active: true },
+      ]);
+      await eventually(async () => (await evaluate(discuss, 'document.visibilityState')) === 'visible', 'Discuss to show');
+      assert.deepEqual(server.requests, ['/odoo/crm', '/odoo/discuss', '/odoo/action-1500']);
+    },
+    { menus },
+  );
 });
 
 test('the settings entry and its shortcut open the settings window', macOnly, async () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isInsideInstance, linkTarget } from '../../src/main/navigation';
+import { appKey, isInsideInstance, linkTarget } from '../../src/main/navigation';
 
 const base = 'https://odoo.example.com';
 
@@ -70,4 +70,41 @@ test('linkTarget drops every other scheme and text that is no URL', () => {
   ]) {
     assert.equal(linkTarget(base, url), 'drop', JSON.stringify(url));
   }
+});
+
+test('appKey is the same for a start address and a link to it', () => {
+  assert.equal(appKey(`${base}/odoo/crm`), appKey('https://ODOO.example.com:443/odoo/crm/'));
+  assert.equal(appKey(`${base}/odoo/crm?view_type=list`), appKey(`${base}/odoo/crm/?view_type=list#`));
+  assert.equal(appKey(`${base}/odoo#home`), appKey(`${base}/odoo/#home`));
+});
+
+test('appKey tells the pages of an app, other apps, and other instances apart', () => {
+  const keys = [
+    `${base}/odoo`,
+    `${base}/odoo/crm`,
+    `${base}/odoo/crm/7`,
+    `${base}/odoo/crm?view_type=list`,
+    `${base}/odoo/crm#chatter`,
+    `${base}/odoo/action-394`,
+    'http://odoo.example.com/odoo/crm',
+    'https://erp.example.com/odoo/crm',
+  ].map(appKey);
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(keys.includes(undefined), false);
+});
+
+test('appKey takes the menu alone for an address of an Odoo before 18', () => {
+  const key = appKey(`${base}/web#action=107&menu_id=7`);
+  assert.equal(key, appKey(`${base}/web#menu_id=7&action_id=107`));
+  assert.equal(key, appKey(`${base}/web#menu_id=7&action=107&cids=1`));
+  assert.notEqual(key, appKey(`${base}/web#action=107&menu_id=8`));
+  assert.notEqual(key, appKey(`${base}/web#action=107`));
+  assert.notEqual(key, appKey(`${base}/web?debug=1#action=107&menu_id=7`));
+  // An empty menu names no app.
+  assert.notEqual(appKey(`${base}/web#menu_id=&action=1`), appKey(`${base}/web#menu_id=&action=2`));
+});
+
+test('appKey gives undefined for an address that is no web page', () => {
+  for (const url of ['', 'not a url', '/odoo/crm', 'mailto:someone@example.com', 'file:///etc/hosts', 'javascript:void(0)'])
+    assert.equal(appKey(url), undefined, url);
 });

@@ -16,6 +16,12 @@
       nav button:disabled { opacity: 0.35; }
       nav button[aria-current] { background: color-mix(in srgb, CanvasText 15%, transparent); font-weight: 600; }
       nav button.icon { padding: 5px; }
+      #apps span { display: flex; border-radius: 6px; }
+      #apps span:has([aria-current]) { background: color-mix(in srgb, CanvasText 15%, transparent); }
+      #apps span button[aria-current] { background: transparent; }
+      #apps span button:first-child { padding-right: 4px; }
+      #apps span .close { padding: 5px 7px 5px 4px; opacity: 0.6; }
+      #apps span .close:hover { opacity: 1; }
       .icon svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
       #reload { margin-right: 4px; }
       #update { border: 1px solid color-mix(in srgb, CanvasText 40%, transparent); padding: 4px 10px; }

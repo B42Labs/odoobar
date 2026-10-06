@@ -21,3 +21,20 @@ export function linkTarget(baseUrl: string, url: string): LinkTarget {
   if (protocol === 'mailto:' || protocol === 'tel:') return 'browser';
   return 'drop';
 }
+
+/**
+ * What the start address of an app shares with every link that opens this
+ * app, or undefined for an address that is no web page. Two addresses with
+ * the same key open the same app. An Odoo before 18 names the app as
+ * `menu_id` behind the `#`, in any order and next to other values, so there
+ * the menu alone counts. Everywhere else the whole address counts, but for a
+ * slash at the end of its path.
+ */
+export function appKey(url: string): string | undefined {
+  const parsed = URL.parse(url);
+  if (!parsed || (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')) return undefined;
+  const page = parsed.origin + parsed.pathname.replace(/\/+$/, '') + parsed.search;
+  const menu = new URLSearchParams(parsed.hash.slice(1)).get('menu_id');
+  if (menu) return `${page}#menu_id=${menu}`;
+  return parsed.hash.length > 1 ? page + parsed.hash : page;
+}

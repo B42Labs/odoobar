@@ -12,6 +12,7 @@ OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, K
 - **Konfigurierbare Odoo-URL**: Die Basis-URL der Odoo-Instanz wird einmal eingestellt.
 - **Konfigurierbare App-URLs**: Jede App hat eine eigene URL, relativ zur Basis-URL oder absolut.
 - **App-Leiste im Fenster**: Am oberen Fensterrand stehen alle konfigurierten Apps zum Umschalten, davor die Knöpfe für Zurück, Vorwärts und Neu laden.
+- **Apps aus Odoo heraus öffnen**: Ein Klick auf eine App in Odoo, etwa auf der Startseite, wechselt zu ihrem Eintrag in der App-Leiste. Fehlt die App dort, bekommt sie einen Eintrag, der sich wieder schließen lässt.
 - **Eingebetteter Browser**: Die Darstellung übernimmt Chromium über Electron.
 - **Hinweis auf neue Versionen**: Gibt es eine neuere Version von OdooBar, nennt ein Knopf in der App-Leiste sie und führt zu ihrem Download.
 
@@ -62,6 +63,10 @@ Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss u
 
 Die Pfeile blättern durch die Seiten, die die aktive App gezeigt hat, und der Knopf daneben lädt ihre Seite neu, wie `⌘R`. Jede App hat ihren eigenen Verlauf. Ein Pfeil ist ausgegraut, solange es in seiner Richtung keine Seite gibt.
 
+Wer in Odoo eine App öffnet, etwa mit einem Klick auf „Kalender“ auf der Startseite oder im App-Menü, landet beim Eintrag dieser App in der Leiste, mit der Seite, die sie dort zuletzt gezeigt hat. Die Ansicht, in der der Klick fiel, bleibt, wo sie war. Steht die App nicht in der Leiste, legt OdooBar hinter den konfigurierten Apps einen Eintrag für sie an und zeigt ihn an. Ein solcher Eintrag trägt ein „×“, das ihn mit seiner Ansicht wieder schließt. Danach ist die App rechts daneben aktiv oder, wenn es keine gibt, die links daneben. Er steht nur in der App-Leiste, nicht in der Menüleiste und nicht in `config.json`, und bleibt bis zum „×“, bis zum Abmelden oder bis OdooBar beendet wird. Konfigurierte Apps haben kein „×“, sie entfernt nur das Einstellungsfenster. Wer eine so geöffnete App in den Einstellungen hinzufügt, bekommt statt des Eintrags mit „×“ den konfigurierten.
+
+OdooBar erkennt eine App an ihrer Startadresse: Der Klick muss auf einen Link fallen, der genau dorthin führt, wie ihn Odoo für jede App der Startseite und des App-Menüs zeichnet. Welche Apps es außer den konfigurierten gibt, fragt OdooBar nach jedem Laden einer Seite bei Odoo ab, aus derselben Menüliste wie die Auswahl hinter „App hinzufügen“. Ohne Anmeldung kennt OdooBar deshalb nur die konfigurierten Apps. Jeder andere Link bleibt in seiner Ansicht, auch der zur App der Ansicht selbst.
+
 Ein Klick auf die bereits aktive App in der Leiste lädt wieder ihre Startadresse. Kann eine Seite nicht geladen werden, stehen Adresse und Grund unter der Leiste, und „Erneut versuchen“ oder `⌘R` lädt sie neu.
 
 Jeder Start von OdooBar öffnet das Fenster. Nur wenn macOS OdooBar bei der Anmeldung startet, bleibt es verborgen. Wer OdooBar startet, während es schon läuft, holt das Fenster nach vorn. Der rote Schließen-Knopf blendet das Fenster aus, genau wie `⌘W`.
@@ -71,7 +76,7 @@ Jeder Start von OdooBar öffnet das Fenster. Nur wenn macOS OdooBar bei der Anme
 | Kürzel | Wirkung |
 | --- | --- |
 | Frei konfigurierbar pro App | App systemweit nach vorn holen, erneutes Drücken blendet das Fenster aus |
-| `⌘1` bis `⌘9` | Im Fenster zur ersten bis neunten App wechseln |
+| `⌘1` bis `⌘9` | Im Fenster zur ersten bis neunten App der Leiste wechseln |
 | `⌘R` | Aktive App neu laden |
 | `⌘,` | Einstellungen öffnen |
 | `⌘W` | Fenster ausblenden, OdooBar läuft in der Menüleiste weiter |
@@ -86,7 +91,7 @@ Beim ersten Start fragt OdooBar nach der Odoo-URL und zeigt danach die normale O
 
 OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eigenen Chromium-Profil der App, im Ordner `Partitions/odoo` neben `config.json`. Läuft die Sitzung serverseitig ab, erscheint im Fenster wieder die Anmeldeseite. Nach dem Login gilt die Sitzung sofort für alle Apps. Zeigt eine andere App noch die Anmeldeseite, lädt `⌘R` oder ein Klick auf die bereits aktive App in der Leiste sie neu.
 
-„Abmelden“ in den Einstellungen löscht das Profil mit allen Cookies, also alles, was die Odoo-Seiten gespeichert haben. Die Konfiguration bleibt erhalten. Die Sitzung auf dem Odoo-Server beendet das nicht, sie läuft dort von selbst ab. Wer sie sofort beenden will, meldet sich vorher in Odoo ab.
+„Abmelden“ in den Einstellungen löscht das Profil mit allen Cookies, also alles, was die Odoo-Seiten gespeichert haben. Die Konfiguration bleibt erhalten. Die Einträge mit „×“ verschwinden aus der App-Leiste, denn die nächste Anmeldung kann ein anderes Konto mit anderen Apps sein. Die Sitzung auf dem Odoo-Server beendet das nicht, sie läuft dort von selbst ab. Wer sie sofort beenden will, meldet sich vorher in Odoo ab.
 
 ### Einstellungen
 
@@ -215,17 +220,18 @@ OdooBar basiert auf [Electron](https://www.electronjs.org/) und bringt damit ein
 | Menü in der Menüleiste | `Menu`, dazu `app.dock`, das das Dock-Symbol zeigt, solange ein Fenster offen ist |
 | Hinweis auf neue Versionen | `net.fetch` gegen die Releases-API von GitHub |
 
-Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert.
+Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert. OdooBar hört in ihnen nur auf Klicks auf Links: Führt ein Link zur Startadresse einer anderen App, wechselt das Fenster dorthin, und die Seite erfährt von diesem Klick nichts. Jeder andere Klick erreicht die Seite unverändert.
 
 Die Symbole der Menüleiste stammen aus [Lucide](https://lucide.dev) 1.52.0 (ISC-Lizenz). Der Build rendert jedes Symbol als Vorlagenbild in 18 Punkt, das macOS passend zur Menüleiste einfärbt.
 
-Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Standardbrowser des Systems, wenn sie aus der Odoo-Instanz hinausführen, und in derselben Ansicht, wenn sie unterhalb von `baseUrl` liegen. Ein Seitenwechsel innerhalb einer Ansicht bleibt in der Ansicht, auch wenn er zu einer fremden Adresse führt. Nur so funktioniert die Anmeldung über einen externen Identitätsanbieter. Adressen, die keine Webseiten sind, lädt keine Ansicht: `mailto:`- und `tel:`-Links gehen an das System, alles andere, etwa eine ins Fenster gezogene Datei, wird verworfen.
+Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Standardbrowser des Systems, wenn sie aus der Odoo-Instanz hinausführen, und in derselben Ansicht, wenn sie unterhalb von `baseUrl` liegen. Führt ein solcher Link zur Startadresse einer anderen App, wechselt das Fenster zu ihr, wie bei einem gewöhnlichen Klick. Ein Seitenwechsel innerhalb einer Ansicht bleibt in der Ansicht, auch wenn er zu einer fremden Adresse führt. Nur so funktioniert die Anmeldung über einen externen Identitätsanbieter. Adressen, die keine Webseiten sind, lädt keine Ansicht: `mailto:`- und `tel:`-Links gehen an das System, alles andere, etwa eine ins Fenster gezogene Datei, wird verworfen.
 
 ### Bekannte Einschränkungen
 
 - macOS blendet Menüleisten-Symbole aus, wenn der Platz nicht reicht, vor allem auf MacBooks mit Notch. Bei vielen Apps lohnt es sich, nur die wichtigsten in die Menüleiste zu legen und den Rest über Kürzel und App-Leiste zu erreichen.
 - Jede geöffnete App ist eine eigene Chromium-Ansicht und belegt entsprechend Arbeitsspeicher. Ansichten werden deshalb erst beim ersten Aufruf geladen.
 - Electron hat keinen Push-Dienst. OdooBar bietet Odoo die Push-Schnittstelle deshalb nicht an, sonst meldete Odoo bei jedem Start „Push-Benachrichtigungen konnten nicht aktiviert werden“. Benachrichtigungen zeigt Odoo trotzdem, aber nur, solange OdooBar läuft und mindestens eine App geladen ist.
+- Der Wechsel zu einer App, die in Odoo geöffnet wird, hängt am Klick auf ihren Link. Wer eine App in Odoo anders öffnet, etwa über die Suche der Startseite mit der Eingabetaste, öffnet sie wie bisher in der Ansicht, die gerade zu sehen ist. Dasselbe gilt für eine konfigurierte App, deren `url` nicht die Startadresse ist, die Odoo für sie verwendet: Sie bekommt beim Klick in Odoo einen zweiten Eintrag mit „×“.
 - OdooBar gibt sich Webseiten gegenüber als OdooBar auf Electron zu erkennen. Identitätsanbieter, die eingebettete Browser ablehnen, etwa Google, können die Anmeldung deshalb verweigern.
 
 ## Entwicklung

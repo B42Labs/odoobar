@@ -150,7 +150,7 @@ export async function readBar(page: Page): Promise<Bar> {
   return (await evaluate(
     page,
     `({
-      apps: [...document.querySelectorAll('#apps button')].map((button) => ({
+      apps: [...document.querySelectorAll('#apps button[data-app-id]')].map((button) => ({
         id: button.dataset.appId,
         name: button.textContent,
         active: button.getAttribute('aria-current') === 'true',

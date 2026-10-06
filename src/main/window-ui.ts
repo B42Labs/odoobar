@@ -29,7 +29,8 @@ const PARTITION = 'persist:odoo';
 /**
  * The Electron side of WindowUi: one window whose own page is the app bar,
  * with one view per app below the bar. It holds no decisions, window.ts makes
- * them and hears about clicks and keys through `events`.
+ * them and hears about clicks and keys through `events`. Every view runs the
+ * preload script view.ts, which asks before its page follows a link.
  */
 export function createWindowUi(events: () => WindowController, dock: Dock): WindowUi {
   const pageUrl = pathToFileURL(join(__dirname, '../renderer/app-bar.html')).href;
@@ -39,6 +40,7 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   let shown: string | undefined;
   let quitting = false;
   const odoo = session.fromPartition(PARTITION);
+  const idOf = (contents: WebContents) => [...views].find(([, view]) => view.webContents === contents)?.[0];
 
   // Without this, the 'close' listener below would keep OdooBar from quitting.
   app.on('before-quit', () => {
@@ -51,7 +53,7 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   odoo.setPermissionRequestHandler((contents, permission, callback, details) => {
     if (permission !== 'openExternal') return callback(events().grantsPermission(details.requestingUrl));
     callback(false);
-    const id = [...views].find(([, view]) => view.webContents === contents)?.[0];
+    const id = idOf(contents);
     const url = 'externalURL' in details ? details.externalURL : undefined;
     if (id !== undefined && url !== undefined) events().openLink(id, url);
   });
@@ -72,6 +74,23 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   });
   ipcMain.on('app-bar:press', (event, id: unknown) => {
     if (fromBar(event) && typeof id === 'string') events().pressApp(id);
+  });
+  ipcMain.on('app-bar:close', (event, id: unknown) => {
+    if (fromBar(event) && typeof id === 'string') events().closeApp(id);
+  });
+  // The preload script of a view waits for the answer, so every message gets one, even when the
+  // decision throws. Electron sends the first value that `returnValue` gets, so it is set once.
+  // Only the page that fills a view may ask, not a frame in it.
+  ipcMain.on('view:link', (event, url: unknown) => {
+    let taken = false;
+    try {
+      const id = idOf(event.sender);
+      const frame = event.senderFrame;
+      if (id !== undefined && frame !== null && frame === event.sender.mainFrame && typeof url === 'string')
+        taken = events().followLink(id, frame.url, url);
+    } finally {
+      event.returnValue = taken;
+    }
   });
   ipcMain.on('app-bar:settings', (event) => {
     if (fromBar(event)) events().openSettings();
@@ -158,7 +177,11 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
       // red box on every start. Without the Push API, Odoo does not try. It still shows its
       // notifications while OdooBar runs, since those need only the permission.
       const view = new WebContentsView({
-        webPreferences: { partition: PARTITION, disableBlinkFeatures: 'PushMessaging' },
+        webPreferences: {
+          partition: PARTITION,
+          disableBlinkFeatures: 'PushMessaging',
+          preload: join(__dirname, '../preload/view.js'),
+        },
       });
       const contents = view.webContents;
       views.set(id, view);
@@ -189,6 +212,7 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
       };
       contents.on('did-frame-navigate', reportHistory);
       contents.on('did-navigate-in-page', reportHistory);
+      contents.on('did-finish-load', () => void events().pageLoaded());
       contents.on('did-fail-load', (_event, _code, description, failedUrl, isMainFrame) => {
         // A page that did not load takes a place in the history as well.
         reportHistory();
@@ -288,6 +312,7 @@ export async function fetchSessionJson(from: Session, url: string, accept: strin
 /** The Electron side of Desktop. main.ts hands in the way to the settings window. */
 export function createDesktop(openSettings: () => void): Desktop {
   return {
+    fetchJson: fetchOdooJson,
     openExternal(url) {
       shell.openExternal(url).catch((error: unknown) => {
         console.error(`OdooBar could not open ${url}:`, error);
