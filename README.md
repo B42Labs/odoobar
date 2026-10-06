@@ -13,6 +13,7 @@ OdooBar ist eine kleine macOS-App, die einzelne Odoo-Apps (z. B. Discuss, CRM, K
 - **Apps aus Odoo heraus öffnen**: Ein Klick auf eine App in Odoo, etwa auf der Startseite, wechselt zu ihrem Eintrag in der App-Leiste. Fehlt die App dort, bekommt sie einen Eintrag, der sich wieder schließen lässt.
 - **Eingebetteter Browser**: Die Darstellung übernimmt Chromium über Electron.
 - **Hinweis auf neue Versionen**: Gibt es eine neuere Version von OdooBar, nennt ein Knopf in der App-Leiste sie und führt zu ihrem Download.
+- **Anwesenheit**: Ein Knopf in der App-Leiste checkt mit einem Klick in Odoo ein und aus. Sein Symbol zeigt den Stand, den Odoo zuletzt gemeldet hat.
 
 ## Installation
 
@@ -63,11 +64,11 @@ Solange ein Fenster von OdooBar offen ist, hat die App ein Dock-Symbol, und ist 
 
 ### Fenster
 
-Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben. Links davon stehen die Knöpfe „Zurück“, „Vorwärts“ und „Neu laden“. Gibt es eine neuere Version von OdooBar, erscheint links vom Zahnrad ein Knopf, der sie nennt (siehe „Aktualisierung“).
+Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfigurierten Apps, die aktive ist hervorgehoben. Links davon stehen die Knöpfe „Zurück“, „Vorwärts“, „Neu laden“ und der Anwesenheitsknopf. Gibt es eine neuere Version von OdooBar, erscheint links vom Zahnrad ein Knopf, der sie nennt (siehe „Aktualisierung“).
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  ‹  ›  ↻   Discuss   CRM   Kalender   Projekte       ⚙   │
+│  ‹  ›  ↻  ☺   Discuss   CRM   Kalender   Projekte    ⚙   │
 ├──────────────────────────────────────────────────────────┤
 │                                                          │
 │                  Odoo-Ansicht der aktiven App            │
@@ -78,6 +79,10 @@ Alle Apps teilen sich ein Fenster. Die Leiste am oberen Rand zeigt die konfiguri
 Jede App behält ihren Zustand, solange OdooBar läuft. Wer von CRM zu Discuss und wieder zurück wechselt, landet im selben Datensatz wie zuvor.
 
 Die Pfeile blättern durch die Seiten, die die aktive App gezeigt hat, und der Knopf daneben lädt ihre Seite neu, wie `⌘R`. Jede App hat ihren eigenen Verlauf. Ein Pfeil ist ausgegraut, solange es in seiner Richtung keine Seite gibt.
+
+Der Anwesenheitsknopf rechts von „Neu laden“ checkt mit einem Klick und ohne Rückfrage in Odoo ein oder aus, wie der Knopf in der oberen Leiste von Odoo. Sein Symbol ist eine Person, solange der angemeldete Benutzer ausgecheckt ist, und eine grüne Person mit Haken, solange er eingecheckt ist. Der Tooltip lautet „Einchecken“ oder „Auschecken (eingecheckt seit 08:15)“, mit dem Datum, wenn das Einchecken an einem anderen Tag war. Das Symbol zeigt nur, was Odoo gemeldet hat. OdooBar fragt den Stand ab, wenn das Fenster erscheint oder in den Vordergrund kommt, nach jedem Laden einer Seite in einer Ansicht, nach jedem Klick auf den Knopf und wenn eine Seite in einer Ansicht den Knopf in der oberen Leiste von Odoo benutzt. Ein Klick fragt zuerst nach: Hat sich der Stand inzwischen anderswo geändert, etwa am Telefon, checkt er weder ein noch aus und bringt nur das Symbol auf den Stand von Odoo. Schlägt ein Klick fehl, nennt ein Dialog am Fenster den Grund, etwa eine abgelaufene Anmeldung oder die Meldung von Odoo.
+
+Der Anwesenheitsknopf fehlt, solange Odoo kein Einchecken erlaubt: ohne Anmeldung, für einen Benutzer ohne Mitarbeiterdatensatz, wenn das Unternehmen das Einchecken in der oberen Leiste von Odoo abgeschaltet hat, und bei einer Instanz vor Odoo 17 oder ohne die App „Anwesenheiten“. Er fehlt auch, solange der Schalter in den Einstellungen aus ist.
 
 Wer in Odoo eine App öffnet, etwa mit einem Klick auf „Kalender“ auf der Startseite oder im App-Menü, landet beim Eintrag dieser App in der Leiste, mit der Seite, die sie dort zuletzt gezeigt hat. Die Ansicht, in der der Klick fiel, bleibt, wo sie war. Steht die App nicht in der Leiste, legt OdooBar hinter den konfigurierten Apps einen Eintrag für sie an und zeigt ihn an. Ein solcher Eintrag trägt ein „×“, das ihn mit seiner Ansicht wieder schließt. Danach ist die App rechts daneben aktiv oder, wenn es keine gibt, die links daneben. Er steht nur in der App-Leiste, nicht in der Menüleiste und nicht in `config.json`, und bleibt bis zum „×“, bis zum Abmelden oder bis OdooBar beendet wird. Konfigurierte Apps haben kein „×“, sie entfernt nur das Einstellungsfenster. Wer eine so geöffnete App in den Einstellungen hinzufügt, bekommt statt des Eintrags mit „×“ den konfigurierten.
 
@@ -114,6 +119,8 @@ OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eige
 Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,`, über „Einstellungen …“ im Menü „OdooBar“ und über denselben Eintrag im Menü eines Symbols. Es erscheint mittig über dem Fenster von OdooBar, also auf dessen Bildschirm. Ist das Fenster ausgeblendet, erscheint es in der Mitte des Bildschirms, auf dem der Mauszeiger steht.
 
 Änderungen wirken erst mit „Speichern“: OdooBar prüft alle Werte, schreibt `config.json`, und App-Leiste, Menüleiste, Tastenkürzel und der Start bei der Anmeldung übernehmen die neue Konfiguration ohne Neustart. Verletzt ein Wert eine Regel, nennt das Fenster den Fehler neben „Speichern“, markiert das Feld und lässt die Datei unverändert. Wer das Fenster mit ungespeicherten Änderungen schließt, etwa mit `⌘W` oder dem roten Knopf, wird gefragt, ob sie verworfen werden sollen.
+
+„Anwesenheitsknopf in der App-Leiste anzeigen“ unter „Allgemein“ schaltet den Anwesenheitsknopf ein und aus. Ist der Schalter aus, fragt das Fenster von OdooBar Odoo nicht nach der Anwesenheit. Der Schalter ist ausgegraut, solange die gespeicherte Odoo-Adresse kein Einchecken erlaubt, und darunter steht der Grund, etwa die fehlende Anmeldung oder eine Odoo-Version vor 17. Das Einstellungsfenster fragt danach beim Öffnen, nach jedem Speichern und immer, wenn es in den Vordergrund kommt, mit der Anmeldung aus dem Fenster von OdooBar. Wer sich dort anmeldet und zurückkommt, findet den Schalter deshalb freigegeben. Ein ausgegrauter Schalter behält seinen gespeicherten Wert.
 
 Apps lassen sich hinzufügen, entfernen und mit den Pfeilen nach oben oder unten verschieben. „App hinzufügen“ öffnet eine Auswahl: „Leere App“ legt eine leere Zeile an, darunter stehen die Apps, die das angemeldete Odoo-Konto nutzen darf. Ein Klick auf eine davon legt eine Zeile mit Name, Adresse und Symbol an, die sich wie jede andere ändern lässt. Eine neue App bekommt beim Speichern eine `id` aus ihrem Namen.
 
@@ -185,6 +192,7 @@ Beispiel:
 | --- | --- |
 | `baseUrl` | Adresse der Odoo-Instanz. OdooBar ergänzt ein fehlendes `https://` und entfernt einen abschließenden Schrägstrich |
 | `launchAtLogin` | OdooBar bei der Anmeldung am Mac starten |
+| `attendance` | `true` zeigt den Anwesenheitsknopf in der App-Leiste, sofern Odoo das Einchecken erlaubt. Bei `false` fragt das Fenster Odoo nicht nach der Anwesenheit |
 | `apps` | Liste der Apps. Die Reihenfolge bestimmt die Reihenfolge in Menüleiste und App-Leiste |
 
 ### Felder pro App
@@ -202,9 +210,9 @@ Beispiel:
 
 Beim ersten Start fragt OdooBar nach der Odoo-URL und legt die Datei mit zwei Apps an: „Home“ (`/odoo`) und „Zeiterfassung“ (`/odoo/timesheets`), beide mit Symbol in der Menüleiste und ohne Tastenkürzel. Wer die Abfrage schließt, beendet OdooBar, und der nächste Start fragt erneut.
 
-Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. Fehlt `apps`, ist die Liste leer. Fehlt `icon` oder `shortcut`, gilt der leere Text. Jede App braucht `id`, `name` und `url`, und jede `id` darf nur einmal vorkommen. Ein `shortcut`, der kein gültiges Kürzel ist, macht die Datei nicht ungültig, die App hat dann nur kein Kürzel.
+Nur `baseUrl` ist Pflicht. Fehlt `launchAtLogin` oder `menuBar`, gilt `false`. Fehlt `attendance`, gilt `true`. Fehlt `apps`, ist die Liste leer. Fehlt `icon` oder `shortcut`, gilt der leere Text. Jede App braucht `id`, `name` und `url`, und jede `id` darf nur einmal vorkommen. Ein `shortcut`, der kein gültiges Kürzel ist, macht die Datei nicht ungültig, die App hat dann nur kein Kürzel.
 
-`launchAtLogin` und `menuBar` sind `true` oder `false`, `apps` ist eine Liste, alle anderen Felder sind Texte. `id` und `name` dürfen nicht leer sein. `baseUrl` verwendet `http://` oder `https://` und enthält weder Benutzername noch Passwort, `?` oder `#`. Die `url` einer App ist ein Pfad, der mit `/` beginnt, oder eine vollständige Adresse mit `http://` oder `https://`.
+`launchAtLogin`, `attendance` und `menuBar` sind `true` oder `false`, `apps` ist eine Liste, alle anderen Felder sind Texte. `id` und `name` dürfen nicht leer sein. `baseUrl` verwendet `http://` oder `https://` und enthält weder Benutzername noch Passwort, `?` oder `#`. Die `url` einer App ist ein Pfad, der mit `/` beginnt, oder eine vollständige Adresse mit `http://` oder `https://`.
 
 OdooBar liest die Datei beim Start. Änderungen von Hand wirken nach einem Neustart. „Speichern“ im Einstellungsfenster schreibt die Datei in der Form des Beispiels neu und lässt Schlüssel weg, die OdooBar nicht kennt. Ist die Datei kein gültiges JSON oder verletzt sie eine dieser Regeln, nennt ein Dialog die Stelle und bietet zwei Wege an: „Beenden“ lässt die Datei unverändert, „Zurücksetzen“ benennt sie in `config.invalid-<Datum>-<Uhrzeit>.json` um und fragt erneut nach der Odoo-URL.
 
@@ -250,6 +258,8 @@ Links, die einen neuen Tab oder ein neues Fenster verlangen, öffnen sich im Sta
 - Electron hat keinen Push-Dienst. OdooBar bietet Odoo die Push-Schnittstelle deshalb nicht an, sonst meldete Odoo bei jedem Start „Push-Benachrichtigungen konnten nicht aktiviert werden“. Benachrichtigungen zeigt Odoo trotzdem, aber nur, solange OdooBar läuft und mindestens eine App geladen ist.
 - Der Wechsel zu einer App, die in Odoo geöffnet wird, hängt am Klick auf ihren Link. Wer eine App in Odoo anders öffnet, etwa über die Suche der Startseite mit der Eingabetaste, öffnet sie wie bisher in der Ansicht, die gerade zu sehen ist. Dasselbe gilt für eine konfigurierte App, deren `url` nicht die Startadresse ist, die Odoo für sie verwendet: Sie bekommt beim Klick in Odoo einen zweiten Eintrag mit „×“.
 - OdooBar gibt sich Webseiten gegenüber als OdooBar auf Electron zu erkennen. Identitätsanbieter, die eingebettete Browser ablehnen, etwa Google, können die Anmeldung deshalb verweigern.
+- Der Anwesenheitsknopf braucht Odoo 17 oder neuer mit der App „Anwesenheiten“. Ältere Versionen haben die Schnittstelle dafür nicht. Dort fehlt der Knopf, und die Einstellungen nennen den Grund.
+- OdooBar fragt den Stand der Anwesenheit nicht laufend ab. Wer am Telefon oder an einem Kiosk eincheckt, sieht das am Symbol erst, wenn das Fenster das nächste Mal in den Vordergrund kommt, eine Seite lädt oder der Knopf geklickt wird.
 
 ## Entwicklung
 
