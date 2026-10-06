@@ -11,6 +11,8 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { Dock } from './dock';
+import { showInFront } from './dock-ui';
 import { shortcutFor } from './shortcuts';
 import type { BarState, Desktop, WindowController, WindowUi } from './window';
 
@@ -28,7 +30,7 @@ const PARTITION = 'persist:odoo';
  * with one view per app below the bar. It holds no decisions, window.ts makes
  * them and hears about clicks and keys through `events`.
  */
-export function createWindowUi(events: () => WindowController): WindowUi {
+export function createWindowUi(events: () => WindowController, dock: Dock): WindowUi {
   const pageUrl = pathToFileURL(join(__dirname, '../renderer/app-bar.html')).href;
   const views = new Map<string, WebContentsView>();
   let window: BrowserWindow | undefined;
@@ -81,7 +83,7 @@ export function createWindowUi(events: () => WindowController): WindowUi {
     contents.on('before-input-event', (event, input) => {
       const shortcut = shortcutFor(input);
       if (!shortcut) return;
-      // Keeps the key from the page and from Electron's default menu.
+      // Keeps the key from the page and from the app menu.
       event.preventDefault();
       events().handleShortcut(shortcut);
     });
@@ -198,15 +200,13 @@ export function createWindowUi(events: () => WindowController): WindowUi {
       window?.webContents.send('app-bar:state', next);
     },
     showWindow() {
-      // show() also brings a minimized window back.
-      ensureWindow().show();
-      // Without a Dock icon, the window would open behind other apps.
-      app.focus({ steal: true });
+      showInFront(dock, 'window', ensureWindow());
     },
     hideWindow() {
       window?.hide();
       // Hands the keyboard back to the app that was in front before OdooBar.
       app.hide();
+      dock.closed('window');
     },
     isWindowFocused() {
       return window?.isFocused() ?? false;

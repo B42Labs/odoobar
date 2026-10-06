@@ -28,7 +28,20 @@ Für jede App mit aktivierter Option „In Menüleiste anzeigen“ erscheint ein
 
 Die Symbole stehen in der Reihenfolge der Konfiguration, die erste App ganz links, und der Tooltip nennt die App. Liegt das Fenster hinter einem anderen Programm, holt der Klick es nach vorn. „Neu laden“ lädt die App dieses Symbols neu, auch wenn das Fenster verborgen ist oder eine andere App zeigt. Solange die App noch nicht geöffnet wurde, ist der Eintrag ausgegraut. Hat keine App die Option, zeigt OdooBar kein Symbol, und das Fenster öffnet nur ein erneuter Start von OdooBar.
 
-Die App hat kein Dock-Symbol und startet auf Wunsch automatisch bei der Anmeldung am Mac. Dann bleibt das Fenster verborgen, bis ein Symbol, ein Tastenkürzel oder ein erneuter Start es öffnet.
+Die App startet auf Wunsch automatisch bei der Anmeldung am Mac. Dann bleibt das Fenster verborgen, bis ein Symbol, ein Tastenkürzel oder ein erneuter Start es öffnet.
+
+### Menü und Dock
+
+Solange ein Fenster von OdooBar offen ist, hat die App ein Dock-Symbol, und ist sie im Vordergrund, zeigt die macOS-Menüleiste links ihr Menü. macOS gibt nur einer App mit Dock-Symbol ein Menü. Ist kein Fenster mehr offen, verschwindet das Dock-Symbol wieder, und OdooBar läuft nur noch mit den Symbolen oben rechts weiter. Ein Klick auf das Dock-Symbol holt das Fenster nach vorn.
+
+| Menü | Einträge |
+| --- | --- |
+| OdooBar | „Über OdooBar“, „Einstellungen …“ (`⌘,`), Ausblenden, „OdooBar beenden“ (`⌘Q`) |
+| Bearbeiten | Widerrufen, Ausschneiden, Kopieren, Einsetzen, Alles auswählen |
+| Darstellung | Seite vergrößern und verkleinern (`⌘+`, `⌘-`, `⌘0`), Entwicklertools |
+| Fenster | Im Dock ablegen, Zoomen, Fenster schließen (`⌘W`) |
+
+„Über OdooBar“ zeigt die Version der App und die Adresse des Quellcodes, <https://github.com/B42Labs/odoobar>. „Auf GitHub öffnen“ öffnet sie im Standardbrowser. Während der Abfrage beim ersten Start ist „Einstellungen …“ ausgegraut.
 
 ### Fenster
 
@@ -74,7 +87,7 @@ OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eige
 
 ### Einstellungen
 
-Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,` im Fenster und über „Einstellungen …“ im Menü eines Symbols.
+Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,`, über „Einstellungen …“ im Menü „OdooBar“ und über denselben Eintrag im Menü eines Symbols.
 
 Änderungen wirken erst mit „Speichern“: OdooBar prüft alle Werte, schreibt `config.json`, und App-Leiste, Menüleiste, Tastenkürzel und der Start bei der Anmeldung übernehmen die neue Konfiguration ohne Neustart. Verletzt ein Wert eine Regel, nennt das Fenster den Fehler neben „Speichern“, markiert das Feld und lässt die Datei unverändert. Wer das Fenster mit ungespeicherten Änderungen schließt, etwa mit `⌘W` oder dem roten Knopf, wird gefragt, ob sie verworfen werden sollen.
 
@@ -164,7 +177,7 @@ OdooBar liest die Datei beim Start. Änderungen von Hand wirken nach einem Neust
 
 Die Oberfläche ist deutsch, wenn macOS OdooBar auf Deutsch startet, und sonst englisch. Auf einem englischen System heißt die zweite App „Timesheets“.
 
-Der Start bei der Anmeldung gilt nur für die gebaute App, nicht für `npm start`.
+Der Start bei der Anmeldung gilt nur für die gebaute App, nicht für `npm start`. Unter `npm start` heißt das erste Menü außerdem „Electron“ statt „OdooBar“, weil macOS den Namen aus dem App-Bundle nimmt.
 
 ### Odoo-URLs
 
@@ -188,6 +201,7 @@ OdooBar basiert auf [Electron](https://www.electronjs.org/) und bringt damit ein
 | Eingebettete Odoo-Ansichten | `WebContentsView`, eine Ansicht pro App in einem gemeinsamen `BrowserWindow` |
 | Gemeinsamer, dauerhafter Login | Eine persistente Session-Partition (`persist:odoo`) für alle Ansichten |
 | Autostart | `app.setLoginItemSettings` |
+| Menü in der Menüleiste | `Menu`, dazu `app.dock`, das das Dock-Symbol zeigt, solange ein Fenster offen ist |
 
 Die App-Leiste ist eine eigene kleine Ansicht oberhalb der Odoo-Ansichten. Die Odoo-Seiten selbst werden nicht verändert.
 
@@ -237,6 +251,7 @@ Der Container übersetzt und paketiert, signiert wird danach auf dem Mac. Eine `
 
 - Endgültiger Name der App
 - Eigene Symbole für die Menüleiste
+- Eigenes App-Symbol, das Dock zeigt bisher das Symbol von Electron
 - Zähler für ungelesene Discuss-Nachrichten am Menüleisten-Symbol
 - Unterstützung mehrerer Odoo-Instanzen
 - Signierung und Notarisierung für die Verteilung außerhalb des App Store

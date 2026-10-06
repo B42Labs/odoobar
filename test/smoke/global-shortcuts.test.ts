@@ -153,7 +153,8 @@ test('a global shortcut shows its app, and a press while that app is in front hi
     await eventually(async () => !(await focused()), 'the window to lose the keys');
     await pressShortcut(main, HOME);
     await eventually(focused, 'the window to come to the front');
-    assert.equal(await visible(), true);
+    // A window that came from behind others takes the keys before its page counts as visible.
+    await eventually(visible, 'the window to show');
     assert.deepEqual(server.requests, ['/odoo', '/odoo/timesheets']);
   });
 });

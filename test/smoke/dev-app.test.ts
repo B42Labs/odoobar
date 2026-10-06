@@ -10,9 +10,11 @@ import {
   removeUserDataDir,
   stop,
   storedConfig,
+  waitForApplicationType,
   waitForExit,
   writeConfig,
 } from '../support/app-process';
+import { closeWindow, launchInspected } from '../support/main-process';
 
 let electronBinary = '';
 
@@ -23,14 +25,18 @@ before(() => {
 });
 
 test(
-  'development app runs without a Dock icon and allows one instance',
+  'development app has a Dock icon only while its window is open and allows one instance',
   { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 },
   async () => {
     const userDataDir = makeUserDataDir();
     writeConfig(userDataDir, storedConfig);
-    const first = launch(electronBinary, [projectRoot], userDataDir);
+    let first: ChildProcess | undefined;
     let second: ChildProcess | undefined;
     try {
+      const inspected = await launchInspected(electronBinary, [projectRoot], userDataDir);
+      first = inspected.app;
+      await waitForApplicationType(first, 'Foreground', 30_000);
+      await closeWindow(inspected.main);
       await expectRunningAgentApp(first);
 
       second = launch(electronBinary, [projectRoot], userDataDir);
@@ -40,7 +46,7 @@ test(
       first.kill('SIGTERM');
       assert.equal(await waitForExit(first, 10_000), 0);
     } finally {
-      await stop(first);
+      if (first) await stop(first);
       if (second) await stop(second);
       removeUserDataDir(userDataDir);
     }

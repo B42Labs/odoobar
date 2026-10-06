@@ -1,10 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { Dock } from './dock';
+import { showInFront } from './dock-ui';
 import type { Messages } from './messages';
 import type { FirstStartTexts, StartupUi, SubmitResult } from './startup';
 
-function askBaseUrl(messages: Messages, submit: (input: string) => SubmitResult): Promise<boolean> {
+function askBaseUrl(messages: Messages, dock: Dock, submit: (input: string) => SubmitResult): Promise<boolean> {
   return new Promise((resolve, reject) => {
     let saved = false;
     const window = new BrowserWindow({
@@ -43,17 +45,14 @@ function askBaseUrl(messages: Messages, submit: (input: string) => SubmitResult)
       }
       return result;
     });
-    const reveal = () => {
-      window.show();
-      // Without a Dock icon, the window would open behind other apps.
-      app.focus({ steal: true });
-    };
+    const reveal = () => showInFront(dock, 'first-start', window);
     window.once('ready-to-show', reveal);
     // Finder reopens a running OdooBar, and macOS brings the prompt forward. A
     // process started directly quits on the single-instance lock instead, so
     // the prompt, perhaps behind other windows by now, comes forward here.
     app.on('second-instance', reveal);
     window.once('closed', () => {
+      dock.closed('first-start');
       app.off('second-instance', reveal);
       ipcMain.removeHandler('first-start:init');
       ipcMain.removeHandler('first-start:submit');
@@ -70,9 +69,9 @@ function askBaseUrl(messages: Messages, submit: (input: string) => SubmitResult)
 }
 
 /** The Electron side of StartupUi. It holds no decisions, startup.ts makes them. */
-export function createStartupUi(messages: Messages): StartupUi {
+export function createStartupUi(messages: Messages, dock: Dock): StartupUi {
   return {
-    askBaseUrl: (submit) => askBaseUrl(messages, submit),
+    askBaseUrl: (submit) => askBaseUrl(messages, dock, submit),
     async confirmReset(detail) {
       app.focus({ steal: true });
       const { response } = await dialog.showMessageBox({

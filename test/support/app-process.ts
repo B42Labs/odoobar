@@ -122,6 +122,24 @@ export async function waitForApplicationType(
 }
 
 /**
+ * The pid of the app whose menu the menu bar shows right now. The script
+ * asks AppKit and sends no Apple event, so it needs no permission.
+ */
+export function menuBarOwner(): number {
+  return Number(askWorkspace('menuBarOwningApplication.processIdentifier'));
+}
+
+/** The name of that app, which is the title of the first menu in the menu bar. */
+export function menuBarOwnerName(): string {
+  return askWorkspace('menuBarOwningApplication.localizedName.js');
+}
+
+function askWorkspace(property: string): string {
+  const script = `ObjC.import("AppKit"); $.NSWorkspace.sharedWorkspace.${property}`;
+  return execFileSync('osascript', ['-l', 'JavaScript', '-e', script], { encoding: 'utf8' }).trim();
+}
+
+/**
  * Waits until the app runs as an agent app, then checks that it still runs a
  * moment later. The pause is long enough for a lifecycle bug, such as quitting
  * when no window is open, to end the process.

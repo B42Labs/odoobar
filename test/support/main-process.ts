@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { evaluate, waitUntil, type Page } from './devtools';
+import { evaluate, eventually, waitUntil, type Page } from './devtools';
 
 export interface InspectedApp {
   readonly app: ChildProcess;
@@ -27,10 +27,16 @@ export async function launchInspected(executable: string, args: string[], userDa
       30_000,
       'the inspector of the main process',
     );
-    // The inspector answers before Electron has loaded main.js.
+    // The inspector answers before Electron has loaded main.js, and in the
+    // development app before Electron's default app has made way for OdooBar.
     await waitUntil(
       async () =>
-        (await evaluate(main(address), `typeof process.mainModule?.require === 'function'`)) === true ? true : undefined,
+        (await evaluate(
+          main(address),
+          `typeof process.mainModule?.require === 'function' && !process.mainModule.require('electron').app.getAppPath().endsWith('default_app.asar')`,
+        )) === true
+          ? true
+          : undefined,
       30_000,
       'the main module',
     );
@@ -142,7 +148,9 @@ export function blurSettings(main: Page): Promise<void> {
 
 /**
  * Keeps the WindowController that shows the window next, so a test can call
- * it without a control. Call it before the window first shows.
+ * it without a control. A start may have shown the window before this call,
+ * so 'activate' shows it once more, as a click on the Dock icon does. Until
+ * that start has a controller, nobody listens to the event.
  */
 export async function captureController(main: Page): Promise<void> {
   await evaluate(
@@ -154,6 +162,7 @@ export async function captureController(main: Page): Promise<void> {
         globalThis.controller = this;
         return show.call(this);
       };
+      setTimeout(() => ${electron}.app.emit('activate'), 0);
       return true;
     })()`,
   );
@@ -345,6 +354,34 @@ export async function chooseMenuEntry(main: Page, index: number): Promise<void> 
   await evaluate(main, `setTimeout(() => globalThis.trayMenu.items[${index}].click(), 0); true`);
 }
 
+const appMenuItems = `${electron}.Menu.getApplicationMenu().items`;
+
+/** The labels of the app menu, from left to right. macOS shows the name of the app bundle for the first. */
+export async function appMenuLabels(main: Page): Promise<string[]> {
+  return (await evaluate(main, `${appMenuItems}.map(({ label }) => label)`)) as string[];
+}
+
+/** The entries of the first menu of the app menu, the one with the name of the app, without the separators. */
+export async function appMenuEntries(main: Page): Promise<MenuEntry[]> {
+  return (await evaluate(
+    main,
+    `${appMenuItems}[0].submenu.items.filter(({ type }) => type !== 'separator').map(({ label, enabled }) => ({ label, enabled }))`,
+  )) as MenuEntry[];
+}
+
+/** Picks the entry with this label in the first menu of the app menu. The timeout lets the evaluation answer first. */
+export async function chooseAppMenuEntry(main: Page, label: string): Promise<void> {
+  await evaluate(
+    main,
+    `(() => {
+      const entry = ${appMenuItems}[0].submenu.items.find((candidate) => candidate.label === ${JSON.stringify(label)});
+      if (!entry) throw new Error('no entry ' + ${JSON.stringify(label)});
+      setTimeout(() => entry.click(), 0);
+      return true;
+    })()`,
+  );
+}
+
 /**
  * Replaces dialog.showMessageBox in the main process with one that answers
  * every question at once with the button at `response`. `dialogs` returns the
@@ -365,6 +402,20 @@ export async function answerDialogs(main: Page, response: number): Promise<void>
 
 export async function dialogs(main: Page): Promise<string[]> {
   return (await evaluate(main, '(globalThis.dialogs ?? []).map((options) => options.message)')) as string[];
+}
+
+export interface DialogTexts {
+  readonly message: string;
+  readonly detail: string | undefined;
+  readonly buttons: string[];
+}
+
+/** The texts of the question that answerDialogs answered last. */
+export async function lastDialog(main: Page): Promise<DialogTexts | undefined> {
+  return (await evaluate(
+    main,
+    `(({ message, detail, buttons } = {}) => message === undefined ? undefined : { message, detail, buttons })((globalThis.dialogs ?? []).at(-1))`,
+  )) as DialogTexts | undefined;
 }
 
 /**
@@ -397,9 +448,18 @@ export async function loginItemSettings(main: Page): Promise<{ openAtLogin: bool
   return (await evaluate(main, 'globalThis.loginItemSettings')) as { openAtLogin: boolean }[];
 }
 
-/** Takes the keys from the window, as a click into another program does. */
+/**
+ * Takes the keys from the window, as a click into another program does. A
+ * window that has just brought the Dock icon comes back to the front once
+ * more when the icon is there, so this repeats until the window stays behind.
+ */
 export async function blurWindow(main: Page): Promise<void> {
-  await evaluate(main, `${electron}.BrowserWindow.getAllWindows()[0].blur(); true`);
+  const window = `${electron}.BrowserWindow.getAllWindows()[0]`;
+  await eventually(async () => {
+    if ((await evaluate(main, `${window}.isFocused()`)) === false) return true;
+    await evaluate(main, `${window}.blur(); true`);
+    return false;
+  }, 'the window to lose the keys');
 }
 
 export async function isWindowFocused(main: Page): Promise<boolean> {

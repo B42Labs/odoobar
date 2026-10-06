@@ -10,9 +10,10 @@ export interface LifecycleApp {
 }
 
 /**
- * Takes the single-instance lock, hides the Dock icon, and keeps OdooBar
- * running without windows. Returns false after asking the app to quit when
- * another instance with the same user data directory already runs.
+ * Takes the single-instance lock, hides the Dock icon until dock.ts shows it
+ * for a window, and keeps OdooBar running without windows. Returns false
+ * after asking the app to quit when another instance with the same user data
+ * directory already runs.
  */
 export function startApp(app: LifecycleApp): boolean {
   if (!app.requestSingleInstanceLock()) {

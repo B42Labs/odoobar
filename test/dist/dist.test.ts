@@ -9,10 +9,13 @@ import {
   iconCount,
   launch,
   makeUserDataDir,
+  menuBarOwner,
+  menuBarOwnerName,
   projectRoot,
   removeUserDataDir,
   stop,
   storedConfig,
+  waitForApplicationType,
   waitForExit,
   writeConfig,
 } from '../support/app-process';
@@ -25,7 +28,7 @@ import {
   waitForPrompt,
   waitForSettings,
 } from '../support/devtools';
-import { iconImages, launchInspected } from '../support/main-process';
+import { appMenuLabels, closeWindow, iconImages, launchInspected } from '../support/main-process';
 
 const { version } = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as { version: string };
 const appPath = join(projectRoot, 'dist/mac-arm64/OdooBar.app');
@@ -82,16 +85,41 @@ test('ad-hoc signature is valid', () => {
   assert.ok(details.includes('Identifier=com.b42labs.odoobar'), details.join('\n'));
 });
 
-test('built app runs without a Dock icon', { timeout: 60_000 }, async () => {
+test('built app has a Dock icon only while its window is open', { timeout: 60_000 }, async () => {
   const userDataDir = makeUserDataDir();
   writeConfig(userDataDir, storedConfig);
-  const app = launch(executable, [], userDataDir);
+  let app: ChildProcess | undefined;
   try {
+    const inspected = await launchInspected(executable, [], userDataDir);
+    app = inspected.app;
+    // LSUIElement starts the app without the icon, and the window brings it.
+    await waitForApplicationType(app, 'Foreground', 30_000);
+    await closeWindow(inspected.main);
     await expectRunningAgentApp(app);
     app.kill('SIGTERM');
     assert.equal(await waitForExit(app, 10_000), 0);
   } finally {
-    await stop(app);
+    if (app) await stop(app);
+    removeUserDataDir(userDataDir);
+  }
+});
+
+test('built app names its menu after the bundle', { timeout: 60_000 }, async () => {
+  const userDataDir = makeUserDataDir();
+  writeConfig(userDataDir, storedConfig);
+  let app: ChildProcess | undefined;
+  try {
+    const inspected = await launchInspected(executable, ['--lang=en'], userDataDir);
+    app = inspected.app;
+    const { pid } = app;
+    await waitForApplicationType(app, 'Foreground', 30_000);
+    await eventually(() => menuBarOwner() === pid, 'the menu bar to show the menu of OdooBar');
+    // macOS takes the title of the first menu from this name.
+    assert.equal(menuBarOwnerName(), 'OdooBar');
+    assert.deepEqual(await appMenuLabels(inspected.main), ['OdooBar', 'Edit', 'View', 'Window']);
+    assert.equal(await evaluate(inspected.main, `process.mainModule.require('electron').app.getVersion()`), version);
+  } finally {
+    if (app) await stop(app);
     removeUserDataDir(userDataDir);
   }
 });

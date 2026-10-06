@@ -393,7 +393,7 @@ test('closing with unsaved edits asks, and keeps or discards them', macOnly, asy
   });
 });
 
-test('⌘R keeps the unsaved edits, and a page that loads anew starts clean', macOnly, async () => {
+test('a page that loads anew starts clean', macOnly, async () => {
   await withSettings(threeApps, async ({ main, port, settings }) => {
     await countDirtyMessages(main);
     await setField(settings, `${row(0)} input.name`, 'Start');
@@ -401,19 +401,6 @@ test('⌘R keeps the unsaved edits, and a page that loads anew starts clean', ma
       async () => (await evaluate(main, 'globalThis.dirtyMessages')) === 1,
       'OdooBar to hear of the edit',
     );
-
-    // Electron's default menu reloads the page on ⌘R and ⇧⌘R that the page
-    // passes on. A key that a test sends never reaches the menu, so the page
-    // must not see these keys at all.
-    await evaluate(
-      settings,
-      `globalThis.keys = []; addEventListener('keydown', (event) => keys.push(event.key)); true`,
-    );
-    await pressCommand(main, '/renderer/settings.html', 'r');
-    await pressKey(main, '/renderer/settings.html', 'R', ['meta', 'shift']);
-    // Time for the keys, which must not come.
-    await sleep(500);
-    assert.deepEqual(await evaluate(settings, 'globalThis.keys'), []);
 
     // A page that loads anew, as the developer tools can make it, shows the
     // saved configuration, so a close asks nothing.
