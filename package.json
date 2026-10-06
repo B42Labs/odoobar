@@ -1,7 +1,7 @@
 {
   "name": "odoobar",
   "productName": "OdooBar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Odoo apps in the macOS menu bar",
   "author": "B42 Labs",
   "license": "BUSL-1.1",
