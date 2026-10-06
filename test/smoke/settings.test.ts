@@ -275,14 +275,60 @@ test('the settings show the saved configuration', macOnly, async () => {
 test('the settings are German for a German locale', macOnly, async () => {
   await withSettings(
     threeApps,
-    async ({ settings }) => {
+    async ({ bar, settings }) => {
       assert.equal(await evaluate(settings, 'document.title'), 'OdooBar-Einstellungen');
       assert.equal(await textOf(settings, '#save'), 'Speichern');
       assert.equal(await textOf(settings, `${row(0)} button.record`), 'Aufnehmen');
       assert.equal(await textOf(settings, '#blank-app'), 'Leere App');
       assert.equal(await textOf(settings, '#odoo-apps-title'), 'Apps deines Odoo-Kontos');
+      assert.equal(await textOf(settings, '#attendance-label'), 'Anwesenheitsknopf in der App-Leiste anzeigen');
+      await eventually(async () => (await readBar(bar)).attendance?.hint === 'Einchecken', 'the German tooltip');
     },
-    { lang: 'de' },
+    { lang: 'de', attendance: {} },
+  );
+});
+
+test('the attendance switch is on for an instance with attendance, and turning it off removes the button', macOnly, async () => {
+  await withSettings(
+    threeApps,
+    async ({ file, bar, settings }) => {
+      await eventually(async () => (await property(settings, '#attendance', 'disabled')) === false, 'the answer');
+      assert.equal(await property(settings, '#attendance', 'checked'), true);
+      assert.equal(await textOf(settings, '#attendance-hint'), '');
+      assert.equal(await textOf(settings, '#attendance-label'), en.settings.attendance.label);
+      await eventually(async () => (await readBar(bar)).attendance !== undefined, 'the attendance button');
+
+      await setField(settings, '#attendance', false);
+      assert.equal(await saveDisabled(settings), false);
+      await click(settings, '#save');
+      await eventually(() => saveDisabled(settings), 'the save');
+      assert.match(readFileSync(file, 'utf8'), /"attendance": false/);
+      await eventually(async () => (await readBar(bar)).attendance === undefined, 'the button to go');
+      // The switch can turn the button on again.
+      await eventually(async () => (await property(settings, '#attendance', 'disabled')) === false, 'the answer');
+      assert.equal(await property(settings, '#attendance', 'checked'), false);
+    },
+    { attendance: {} },
+  );
+});
+
+test('the attendance switch is greyed out with the reason where attendance cannot work, and a save keeps it on', macOnly, async () => {
+  await withSettings(
+    // A file of a version without the switch.
+    (baseUrl) => ({ baseUrl, apps: [home, timesheets] }),
+    async ({ file, settings }) => {
+      const reason = en.attendance.reasons.unavailable;
+      await eventually(async () => (await textOf(settings, '#attendance-hint')) === reason, 'the reason');
+      assert.equal(await property(settings, '#attendance', 'disabled'), true);
+      assert.equal(await property(settings, '#attendance', 'checked'), true);
+
+      await setField(settings, `${row(0)} input.name`, 'Start');
+      await click(settings, '#save');
+      await eventually(() => saveDisabled(settings), 'the save');
+      assert.match(readFileSync(file, 'utf8'), /"attendance": true/);
+      await eventually(async () => (await textOf(settings, '#attendance-hint')) === reason, 'the reason after the save');
+      assert.equal(await property(settings, '#attendance', 'disabled'), true);
+    },
   );
 });
 
@@ -729,6 +775,25 @@ test('signing out stops when the question is cancelled', macOnly, async () => {
       assert.equal(await textOf(settings, '#sign-out-error'), '');
     },
     { login: true },
+  );
+});
+
+test('the attendance switch turns usable once the user signs in and comes back to the settings', macOnly, async () => {
+  await withSettings(
+    loginApps,
+    async ({ port, settings }) => {
+      const reason = en.attendance.reasons['signed-out'];
+      await eventually(async () => (await textOf(settings, '#attendance-hint')) === reason, 'the reason');
+      assert.equal(await property(settings, '#attendance', 'disabled'), true);
+
+      await logIn(await loadedPage(port, crmLogin));
+      await loadedPage(port, '/odoo/crm');
+      // The focus that coming back to the settings brings, which macOS withholds while the screen is locked.
+      await evaluate(settings, `window.dispatchEvent(new Event('focus')); true`);
+      await eventually(async () => (await property(settings, '#attendance', 'disabled')) === false, 'the switch');
+      assert.equal(await textOf(settings, '#attendance-hint'), '');
+    },
+    { login: true, attendance: {} },
   );
 });
 

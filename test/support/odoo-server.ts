@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface OdooServer {
   /** The address to use as baseUrl, such as http://127.0.0.1:49152. */
@@ -53,6 +54,24 @@ export interface OdooServerOptions {
 
 const ATTENDANCE_STATE = '/hr_attendance/attendance_user_data';
 const ATTENDANCE_TOGGLE = '/hr_attendance/systray_check_in_out';
+
+/**
+ * Waits until no request about attendance came for 300 ms and returns their
+ * number so far, so a test can judge only the later ones. A start of OdooBar
+ * sends up to three: for the shown window, for its focus, and after the page
+ * load of a view.
+ */
+export async function attendanceSettled(server: OdooServer): Promise<number> {
+  const deadline = Date.now() + 10_000;
+  let count = server.attendanceRequests.length;
+  for (;;) {
+    await sleep(300);
+    const seen = server.attendanceRequests.length;
+    if (seen === count) return seen;
+    if (Date.now() >= deadline) throw new Error('the requests about attendance did not end within 10000 ms');
+    count = seen;
+  }
+}
 
 /** A time as Odoo writes it in JSON: UTC, as `YYYY-MM-DD HH:MM:SS`. */
 const odooTime = (date: Date) => date.toISOString().slice(0, 19).replace('T', ' ');
