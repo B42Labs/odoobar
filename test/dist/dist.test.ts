@@ -69,6 +69,7 @@ test('Info.plist carries the bundle settings', () => {
   assert.equal(read('CFBundleShortVersionString'), version);
   assert.equal(read('LSUIElement'), 'true');
   assert.equal(read('LSMinimumSystemVersion'), '13.0');
+  assert.match(read('NSHumanReadableCopyright'), /^Copyright © \d{4} B42 Labs$/);
 });
 
 test('executable is arm64 only', () => {
