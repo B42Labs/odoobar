@@ -1,3 +1,4 @@
+import type { AttendanceStatus } from './attendance';
 import type { ConfigErrorCode } from './config';
 import type { ShortcutStatus } from './global-shortcuts';
 
@@ -8,6 +9,8 @@ export type Locale = 'de' | 'en';
  * both constants below, so a missing translation is a compile error.
  */
 export interface Messages {
+  /** The language of the texts, which also sets the form of a date and a time. */
+  readonly locale: Locale;
   readonly quit: string;
   readonly firstStart: { readonly title: string; readonly label: string; readonly hint: string; readonly save: string };
   readonly seedApps: { readonly home: string; readonly timesheets: string };
@@ -28,6 +31,18 @@ export interface Messages {
     readonly loadFailed: string;
     readonly update: string;
     readonly updateHint: string;
+  };
+  readonly attendance: {
+    readonly checkIn: string;
+    readonly checkOut: string;
+    /** `{since}` is the clock time of the check-in. */
+    readonly checkOutSince: string;
+    readonly checkInFailed: string;
+    readonly checkOutFailed: string;
+    readonly noAnswer: string;
+    readonly failed: string;
+    /** Why OdooBar cannot check in and out, for every state but `usable`. */
+    readonly reasons: Readonly<Record<Exclude<AttendanceStatus['kind'], 'usable'>, string>>;
   };
   readonly menuBar: { readonly reload: string; readonly settings: string };
   readonly appMenu: {
@@ -62,6 +77,7 @@ export interface Messages {
     readonly general: string;
     readonly baseUrl: string;
     readonly launchAtLogin: string;
+    readonly attendance: { readonly label: string; readonly checking: string };
     readonly apps: string;
     readonly name: string;
     readonly url: string;
@@ -99,6 +115,7 @@ export interface Messages {
 }
 
 const en: Messages = {
+  locale: 'en',
   quit: 'Quit',
   firstStart: {
     title: 'Welcome to OdooBar',
@@ -142,6 +159,21 @@ const en: Messages = {
     update: 'Update to {version}',
     updateHint: 'OdooBar {version} is available. Opens the download page in the browser.',
   },
+  attendance: {
+    checkIn: 'Check in',
+    checkOut: 'Check out',
+    checkOutSince: 'Check out (checked in since {since})',
+    checkInFailed: 'OdooBar could not check you in',
+    checkOutFailed: 'OdooBar could not check you out',
+    noAnswer: 'Odoo did not answer the request.',
+    failed: 'OdooBar could not ask Odoo about attendance: {reason}',
+    reasons: {
+      unavailable: 'This Odoo instance offers no attendance. It takes Odoo 17 or later with the Attendances app.',
+      'signed-out': 'Sign in to Odoo in the OdooBar window first.',
+      'no-employee': 'Your Odoo user has no employee record.',
+      'systray-off': 'Your company has turned off the check-in in the top bar of Odoo, and OdooBar follows that.',
+    },
+  },
   menuBar: { reload: 'Reload', settings: 'Settings…' },
   appMenu: {
     about: 'About OdooBar',
@@ -175,6 +207,7 @@ const en: Messages = {
     general: 'General',
     baseUrl: 'Address of your Odoo instance',
     launchAtLogin: 'Start OdooBar at login',
+    attendance: { label: 'Show the attendance button in the app bar', checking: 'Asking Odoo…' },
     apps: 'Apps',
     name: 'Name',
     url: 'Address',
@@ -218,6 +251,7 @@ const en: Messages = {
 };
 
 const de: Messages = {
+  locale: 'de',
   quit: 'Beenden',
   firstStart: {
     title: 'Willkommen bei OdooBar',
@@ -262,6 +296,23 @@ const de: Messages = {
     update: 'Update auf {version}',
     updateHint: 'OdooBar {version} ist verfügbar. Öffnet die Download-Seite im Browser.',
   },
+  attendance: {
+    checkIn: 'Einchecken',
+    checkOut: 'Auschecken',
+    checkOutSince: 'Auschecken (eingecheckt seit {since})',
+    checkInFailed: 'OdooBar konnte dich nicht einchecken',
+    checkOutFailed: 'OdooBar konnte dich nicht auschecken',
+    noAnswer: 'Odoo hat die Anfrage nicht beantwortet.',
+    failed: 'OdooBar konnte Odoo nicht nach der Anwesenheit fragen: {reason}',
+    reasons: {
+      unavailable:
+        'Diese Odoo-Instanz bietet keine Anwesenheit an. Dafür braucht es Odoo 17 oder neuer mit der App „Anwesenheiten“.',
+      'signed-out': 'Melde dich zuerst im Fenster von OdooBar bei Odoo an.',
+      'no-employee': 'Dein Odoo-Benutzer hat keinen Mitarbeiterdatensatz.',
+      'systray-off':
+        'Dein Unternehmen hat das Einchecken in der oberen Leiste von Odoo abgeschaltet, und OdooBar hält sich daran.',
+    },
+  },
   menuBar: { reload: 'Neu laden', settings: 'Einstellungen …' },
   appMenu: {
     about: 'Über OdooBar',
@@ -295,6 +346,7 @@ const de: Messages = {
     general: 'Allgemein',
     baseUrl: 'Adresse deiner Odoo-Instanz',
     launchAtLogin: 'OdooBar bei der Anmeldung starten',
+    attendance: { label: 'Anwesenheitsknopf in der App-Leiste anzeigen', checking: 'Odoo wird gefragt …' },
     apps: 'Apps',
     name: 'Name',
     url: 'Adresse',
