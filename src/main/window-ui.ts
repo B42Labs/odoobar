@@ -217,16 +217,14 @@ export function createWindowUi(events: () => WindowController): WindowUi {
   };
 }
 
-/** The Electron side of Desktop. Until the settings window exists, the settings are config.json. */
-export function createDesktop(configFile: string): Desktop {
+/** The Electron side of Desktop. main.ts hands in the way to the settings window. */
+export function createDesktop(openSettings: () => void): Desktop {
   return {
     openExternal(url) {
       shell.openExternal(url).catch((error: unknown) => {
         console.error(`OdooBar could not open ${url}:`, error);
       });
     },
-    revealConfig() {
-      shell.showItemInFolder(configFile);
-    },
+    openSettings,
   };
 }

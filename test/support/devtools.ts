@@ -167,3 +167,18 @@ export async function waitForBar(port: number): Promise<Page> {
   );
   return page;
 }
+
+/**
+ * The settings page of an app launched with --remote-debugging-port=0, once
+ * its preload script has drawn the configuration. The page keeps its body
+ * hidden until then.
+ */
+export async function waitForSettings(port: number): Promise<Page> {
+  const page = await waitForPage(port, '/renderer/settings.html', 15_000);
+  await waitUntil(
+    async () => ((await evaluate(page, 'document.body !== null && !document.body.hidden')) === true ? true : undefined),
+    5_000,
+    'the settings',
+  );
+  return page;
+}

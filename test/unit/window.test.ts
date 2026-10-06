@@ -53,7 +53,7 @@ function fakeWindow(config: Config, messages: Messages = en) {
   };
   const desktop: Desktop = {
     openExternal: (url) => calls.push(`openExternal ${url}`),
-    revealConfig: () => calls.push('revealConfig'),
+    openSettings: () => calls.push('openSettings'),
   };
   const controller = new WindowController(ui, desktop, messages, config);
   const take = () => {
@@ -165,7 +165,7 @@ test('handleShortcut selects by position, reloads, opens the settings, and hides
   controller.handleShortcut({ kind: 'reload' });
   assert.deepEqual(take(), ['reloadView discuss']);
   controller.handleShortcut({ kind: 'settings' });
-  assert.deepEqual(take(), ['revealConfig']);
+  assert.deepEqual(take(), ['openSettings']);
   controller.handleShortcut({ kind: 'hide' });
   assert.deepEqual(take(), ['hideWindow']);
 });
