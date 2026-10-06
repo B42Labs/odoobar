@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  screen,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
   type MessageBoxOptions,
@@ -14,8 +15,19 @@ import { showInFront } from './dock-ui';
 import { FALLBACK_ICON } from './menu-bar';
 import { ICONS, iconNames } from './menu-bar-ui';
 import type { Messages } from './messages';
-import type { OdooAppsResult, SaveResult, Settings, SettingsInit, SettingsUi, SignOutResult } from './settings';
+import {
+  placeOver,
+  type OdooAppsResult,
+  type SaveResult,
+  type Settings,
+  type SettingsInit,
+  type SettingsUi,
+  type SignOutResult,
+} from './settings';
 import { shortcutFor } from './shortcuts';
+import type { Bounds } from './window';
+
+const SIZE = { width: 760, height: 600 };
 
 /**
  * The Electron side of SettingsUi: one window whose page edits the
@@ -71,10 +83,14 @@ export function createSettingsUi(events: () => Settings, messages: Messages, doc
     if (fromPage(event)) events().cancelRecording();
   });
 
-  const create = () => {
+  const create = (over: Bounds | undefined) => {
+    // Electron would center the window on the primary screen, wherever the user works.
+    const display = over
+      ? screen.getDisplayMatching(over)
+      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const created = new BrowserWindow({
-      width: 760,
-      height: 600,
+      ...SIZE,
+      ...placeOver(SIZE, over ?? display.workArea, display.workArea),
       minWidth: 640,
       minHeight: 400,
       fullscreenable: false,
@@ -133,8 +149,8 @@ export function createSettingsUi(events: () => Settings, messages: Messages, doc
   };
 
   return {
-    showWindow() {
-      if (!window) return create();
+    showWindow(over) {
+      if (!window) return create(over);
       showInFront(dock, 'settings', window);
     },
     closeWindow() {

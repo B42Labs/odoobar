@@ -87,7 +87,7 @@ OdooBar speichert kein Passwort. Erhalten bleibt nur das Sitzungs-Cookie im eige
 
 ### Einstellungen
 
-Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,`, über „Einstellungen …“ im Menü „OdooBar“ und über denselben Eintrag im Menü eines Symbols.
+Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `⌘,`, über „Einstellungen …“ im Menü „OdooBar“ und über denselben Eintrag im Menü eines Symbols. Es erscheint mittig über dem Fenster von OdooBar, also auf dessen Bildschirm. Ist das Fenster ausgeblendet, erscheint es in der Mitte des Bildschirms, auf dem der Mauszeiger steht.
 
 Änderungen wirken erst mit „Speichern“: OdooBar prüft alle Werte, schreibt `config.json`, und App-Leiste, Menüleiste, Tastenkürzel und der Start bei der Anmeldung übernehmen die neue Konfiguration ohne Neustart. Verletzt ein Wert eine Regel, nennt das Fenster den Fehler neben „Speichern“, markiert das Feld und lässt die Datei unverändert. Wer das Fenster mit ungespeicherten Änderungen schließt, etwa mit `⌘W` oder dem roten Knopf, wird gefragt, ob sie verworfen werden sollen.
 

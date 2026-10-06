@@ -119,6 +119,32 @@ export async function resizeWindow(main: Page, width: number, height: number): P
   await evaluate(main, `${electron}.BrowserWindow.getAllWindows()[0].setContentSize(${width}, ${height}); true`);
 }
 
+const windowOf = (urlSuffix: string) =>
+  `${electron}.BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().endsWith(${JSON.stringify(urlSuffix)}))`;
+
+export interface Place {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Where the window is whose page ends in `urlSuffix`, and the part of its screen that windows may use. */
+export async function placeOf(main: Page, urlSuffix: string): Promise<{ bounds: Place; workArea: Place }> {
+  return (await evaluate(
+    main,
+    `(() => {
+      const bounds = ${windowOf(urlSuffix)}.getBounds();
+      return { bounds, workArea: ${electron}.screen.getDisplayMatching(bounds).workArea };
+    })()`,
+  )) as { bounds: Place; workArea: Place };
+}
+
+/** Moves the window whose page ends in `urlSuffix`, as a drag of its title bar and its edges does. */
+export async function moveWindow(main: Page, urlSuffix: string, place: Place): Promise<void> {
+  await evaluate(main, `${windowOf(urlSuffix)}.setBounds(${JSON.stringify(place)}); true`);
+}
+
 /**
  * Calls `method` of the settings window from the event loop, as pressKey
  * presses a key. closeWindow, resizeWindow, blurWindow, and isWindowFocused

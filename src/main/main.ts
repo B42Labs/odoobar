@@ -49,6 +49,7 @@ async function start(): Promise<void> {
       shortcutStates: () => shortcuts.states(),
       suspendShortcuts: () => shortcuts.suspend(),
       resumeShortcuts: () => shortcuts.setConfig(store.get()),
+      windowBounds: () => controller.bounds(),
       signOut: () => controller.signOut(),
       fetchJson: fetchOdooJson,
     },
