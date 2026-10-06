@@ -560,7 +560,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     writeFileSync(
       other,
       `<button id="back"></button><button id="forward"></button><button id="reload"></button>
-<div id="apps"></div><button id="settings"></button>
+<div id="apps"></div><button id="update"></button><button id="settings"></button>
 <div id="notice"><p id="notice-text"></p><button id="retry"></button></div>
 <script>addEventListener('load', () => {
   for (const button of document.querySelectorAll('button')) button.click();

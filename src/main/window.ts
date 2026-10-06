@@ -2,6 +2,7 @@ import { resolveAppUrl, type Config } from './config';
 import { fill, type Messages } from './messages';
 import { linkTarget } from './navigation';
 import type { Shortcut } from './shortcuts';
+import type { Update } from './updates';
 
 /** A step through the pages that a view has shown. */
 export type Direction = 'back' | 'forward';
@@ -14,6 +15,8 @@ export interface BarState {
   readonly nav: { readonly back: boolean; readonly forward: boolean; readonly reload: boolean };
   /** Shown below the bar while no view is. `retry` adds the button that reloads the active app. */
   readonly notice: { readonly text: string; readonly retry: boolean } | undefined;
+  /** The button that leads to a newer release. undefined hides it. */
+  readonly update: { readonly label: string; readonly hint: string } | undefined;
   readonly texts: {
     readonly back: string;
     readonly forward: string;
@@ -90,6 +93,7 @@ export class WindowController {
   private readonly open = new Set<string>();
   private readonly failures = new Map<string, { readonly url: string; readonly reason: string }>();
   private signingOut: Promise<void> | undefined;
+  private update: Update | undefined;
 
   constructor(
     private readonly ui: WindowUi,
@@ -182,6 +186,21 @@ export class WindowController {
   /** The view of an app gives other answers to canGo than before, so the arrows in the app bar change. */
   historyChanged(id: string): void {
     if (id === this.active) this.ui.renderBar(this.barState());
+  }
+
+  /**
+   * A newer release exists, and the app bar offers it until OdooBar quits.
+   * Only the bar is drawn again, so a hidden window opens no view. Nothing
+   * else sets the update, so a saved configuration keeps the button.
+   */
+  setUpdate(update: Update): void {
+    this.update = update;
+    this.ui.renderBar(this.barState());
+  }
+
+  /** A click on the update button opens the page of the release in the browser. Without an update, nothing happens. */
+  openUpdate(): void {
+    if (this.update) this.desktop.openExternal(this.update.url);
   }
 
   openSettings(): void {
@@ -300,6 +319,7 @@ export class WindowController {
       notice = { text: fill(appBar.loadFailed, { name: app.name, url, reason }), retry: true };
     }
     const viewId = app && this.open.has(app.id) ? app.id : undefined;
+    const version = this.update?.version;
     return {
       apps: this.apps.map(({ id, name }) => ({ id, name })),
       activeId: this.active,
@@ -309,6 +329,10 @@ export class WindowController {
         reload: viewId !== undefined,
       },
       notice,
+      update:
+        version === undefined
+          ? undefined
+          : { label: fill(appBar.update, { version }), hint: fill(appBar.updateHint, { version }) },
       texts: {
         back: appBar.back,
         forward: appBar.forward,

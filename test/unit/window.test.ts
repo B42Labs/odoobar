@@ -114,6 +114,7 @@ test('show brings up the window and loads only the first app', () => {
     activeId: 'crm',
     nav: { back: false, forward: false, reload: true },
     notice: undefined,
+    update: undefined,
     texts: { back: 'Back', forward: 'Forward', reload: 'Reload', settings: 'Settings', retry: 'Try again' },
   });
 });
@@ -395,6 +396,46 @@ test('the notice is German for German messages', () => {
     reload: 'Neu laden',
     settings: 'Einstellungen',
     retry: 'Erneut versuchen',
+  });
+});
+
+const release = { version: '0.2.0', url: 'https://github.com/B42Labs/odoobar/releases/tag/v0.2.0' };
+
+test('the bar offers an update only after setUpdate, also in a hidden window', () => {
+  const { controller, take, bar } = fakeWindow(two);
+  controller.setConfig(two);
+  assert.notEqual(bar(), undefined);
+  assert.equal(bar()?.update, undefined);
+
+  controller.setUpdate(release);
+  const offer = {
+    label: 'Update to 0.2.0',
+    hint: 'OdooBar 0.2.0 is available. Opens the download page in the browser.',
+  };
+  assert.deepEqual(take(), []);
+  assert.deepEqual(bar()?.update, offer);
+
+  // A saved configuration keeps the button.
+  controller.setConfig({ ...two, apps: [discuss] });
+  assert.deepEqual(bar()?.update, offer);
+});
+
+test('openUpdate opens the release page in the browser and does nothing without an update', () => {
+  const { controller, take } = shownWindow(two);
+  controller.openUpdate();
+  assert.deepEqual(take(), []);
+  controller.setUpdate(release);
+  take();
+  controller.openUpdate();
+  assert.deepEqual(take(), ['openExternal https://github.com/B42Labs/odoobar/releases/tag/v0.2.0']);
+});
+
+test('the update button is German for German messages', () => {
+  const { controller, bar } = shownWindow(two, messagesFor('de'));
+  controller.setUpdate(release);
+  assert.deepEqual(bar()?.update, {
+    label: 'Update auf 0.2.0',
+    hint: 'OdooBar 0.2.0 ist verfügbar. Öffnet die Download-Seite im Browser.',
   });
 });
 

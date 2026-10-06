@@ -24,6 +24,8 @@ export interface Messages {
     readonly retry: string;
     readonly noApps: string;
     readonly loadFailed: string;
+    readonly update: string;
+    readonly updateHint: string;
   };
   readonly menuBar: { readonly reload: string; readonly settings: string };
   readonly appMenu: {
@@ -134,6 +136,8 @@ const en: Messages = {
     retry: 'Try again',
     noApps: 'No apps are configured.',
     loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
+    update: 'Update to {version}',
+    updateHint: 'OdooBar {version} is available. Opens the download page in the browser.',
   },
   menuBar: { reload: 'Reload', settings: 'Settings…' },
   appMenu: {
@@ -251,6 +255,8 @@ const de: Messages = {
     retry: 'Erneut versuchen',
     noApps: 'Es sind keine Apps eingerichtet.',
     loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
+    update: 'Update auf {version}',
+    updateHint: 'OdooBar {version} ist verfügbar. Öffnet die Download-Seite im Browser.',
   },
   menuBar: { reload: 'Neu laden', settings: 'Einstellungen …' },
   appMenu: {
