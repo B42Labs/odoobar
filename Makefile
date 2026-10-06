@@ -11,7 +11,7 @@ PROFILE ?= $(CURDIR)/.test-profile
 ARGS    ?=
 
 SOURCES := Dockerfile .dockerignore package.json package-lock.json \
-           tsconfig.json electron-builder.yml $(shell find src test scripts -type f)
+           tsconfig.json electron-builder.yml LICENSE $(shell find src test scripts -type f)
 
 .PHONY: build run reset clean
 

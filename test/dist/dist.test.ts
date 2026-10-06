@@ -86,6 +86,13 @@ test('ad-hoc signature is valid', () => {
   assert.ok(details.includes('Identifier=com.b42labs.odoobar'), details.join('\n'));
 });
 
+test('bundle carries the license', () => {
+  assert.equal(
+    readFileSync(join(appPath, 'Contents/Resources/LICENSE'), 'utf8'),
+    readFileSync(join(projectRoot, 'LICENSE'), 'utf8'),
+  );
+});
+
 test('built app has a Dock icon only while its window is open', { timeout: 60_000 }, async () => {
   const userDataDir = makeUserDataDir();
   writeConfig(userDataDir, storedConfig);

@@ -7,7 +7,7 @@ WORKDIR /app
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 COPY package.json package-lock.json ./
 RUN npm ci
-COPY tsconfig.json electron-builder.yml ./
+COPY tsconfig.json electron-builder.yml LICENSE ./
 COPY src src
 COPY test test
 COPY scripts scripts
