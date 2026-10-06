@@ -18,7 +18,7 @@ import { createStartupUi } from './startup-ui';
 import { watchForUpdates } from './updates';
 import { fetchReleaseJson } from './updates-ui';
 import { WindowController } from './window';
-import { createDesktop, createWindowUi, fetchOdooJson } from './window-ui';
+import { createDesktop, createWindowUi, fetchOdooJson, postOdooJson } from './window-ui';
 
 async function start(): Promise<void> {
   await app.whenReady();
@@ -54,6 +54,7 @@ async function start(): Promise<void> {
       windowBounds: () => controller.bounds(),
       signOut: () => controller.signOut(),
       fetchJson: fetchOdooJson,
+      postJson: postOdooJson,
     },
     messages,
   );

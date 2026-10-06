@@ -32,7 +32,8 @@ const two: Config = { baseUrl: B, launchAtLogin: false, attendance: true, apps: 
  * answer: the configuration, the shortcut states, the place of the main
  * window (by default none, as for a hidden one), what a save does (by default
  * it keeps the configuration), the answers to both questions and to a
- * sign-out, and the JSON document of an address (by default none).
+ * sign-out, and the JSON document of an address and of a post (by default
+ * none).
  */
 function fakeSettings(config: Config = two) {
   let calls: string[] = [];
@@ -47,6 +48,7 @@ function fakeSettings(config: Config = two) {
     confirmSignOut: (): Promise<boolean> => Promise.resolve(true),
     signOut: (): Promise<void> => Promise.resolve(),
     fetchJson: (_url: string): Promise<unknown> => Promise.resolve(undefined),
+    postJson: (_url: string, _body: unknown): Promise<unknown> => Promise.resolve(undefined),
   };
   const ui: SettingsUi = {
     showWindow: (over) =>
@@ -79,6 +81,10 @@ function fakeSettings(config: Config = two) {
     fetchJson: (url) => {
       calls.push(`fetchJson ${url}`);
       return world.fetchJson(url);
+    },
+    postJson: (url, body) => {
+      calls.push(`postJson ${url}`);
+      return world.postJson(url, body);
     },
   };
   const take = () => {
@@ -562,4 +568,70 @@ test('odooApps reports an instance that does not answer', async () => {
     ok: false,
     error: 'OdooBar could not load the apps: net::ERR_CONNECTION_REFUSED',
   });
+});
+
+const attendanceUrl = `${B}/hr_attendance/attendance_user_data`;
+
+/** The answer of the state route of Odoo for a checked-out employee. `more` replaces fields of the result. */
+function employee(more: object = {}) {
+  return {
+    jsonrpc: '2.0',
+    id: null,
+    result: { id: 7, last_check_in: false, attendance_state: 'checked_out', display_systray: true, ...more },
+  };
+}
+
+test('attendance asks the saved instance and reports a usable state', async () => {
+  const { settings, world, take } = fakeSettings();
+  const bodies: unknown[] = [];
+  world.postJson = (_url, body) => {
+    bodies.push(body);
+    return Promise.resolve(employee());
+  };
+  assert.deepEqual(await settings.attendance(), { usable: true });
+  assert.deepEqual(take(), [`postJson ${attendanceUrl}`]);
+  assert.deepEqual(bodies, [{ jsonrpc: '2.0', method: 'call', params: {} }]);
+});
+
+test('attendance names the reason for each state that is not usable', async () => {
+  const { settings, world } = fakeSettings();
+  const answers: [keyof typeof en.attendance.reasons, unknown][] = [
+    ['unavailable', undefined],
+    ['signed-out', { jsonrpc: '2.0', id: null, error: { code: 100, message: 'Odoo Session Expired', data: {} } }],
+    ['no-employee', { jsonrpc: '2.0', id: null, result: {} }],
+    ['systray-off', employee({ display_systray: false })],
+  ];
+  for (const [kind, answer] of answers) {
+    world.postJson = () => Promise.resolve(answer);
+    assert.deepEqual(await settings.attendance(), { usable: false, reason: en.attendance.reasons[kind] }, kind);
+  }
+});
+
+test('attendance reports an instance that does not answer and an error of Odoo', async () => {
+  const { settings, world } = fakeSettings();
+  world.postJson = () => Promise.reject(new Error('net::ERR_CONNECTION_REFUSED'));
+  assert.deepEqual(await settings.attendance(), {
+    usable: false,
+    reason: 'OdooBar could not ask Odoo about attendance: net::ERR_CONNECTION_REFUSED',
+  });
+  world.postJson = () =>
+    Promise.resolve({ error: { code: 200, message: 'Odoo Server Error', data: { message: 'Access Denied' } } });
+  assert.deepEqual(await settings.attendance(), {
+    usable: false,
+    reason: 'OdooBar could not ask Odoo about attendance: Access Denied',
+  });
+});
+
+test('save writes the attendance switch and names a value that is no boolean', () => {
+  const { settings, world } = fakeSettings();
+  const result = settings.save({ ...two, attendance: false });
+  assert.equal(world.config.attendance, false);
+  assert.deepEqual(result, { ok: true, state: { config: { ...two, attendance: false }, notices: {}, texts: en.settings } });
+
+  assert.deepEqual(settings.save({ ...two, attendance: 'yes' }), {
+    ok: false,
+    path: 'attendance',
+    error: en.configErrors['expected-boolean'],
+  });
+  assert.equal(world.config.attendance, false);
 });

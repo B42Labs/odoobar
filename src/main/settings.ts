@@ -1,3 +1,4 @@
+import { readAttendance } from './attendance';
 import { ConfigError, isObject, validateConfig, type Config } from './config';
 import type { ShortcutState } from './global-shortcuts';
 import { fill, reasonOf, type Messages } from './messages';
@@ -33,6 +34,9 @@ export type SignOutResult = { readonly ok: true } | { readonly ok: false; readon
 export type OdooAppsResult =
   | { readonly ok: true; readonly apps: readonly OdooApp[] }
   | { readonly ok: false; readonly error: string };
+
+/** Whether the attendance button can work. `reason` tells the user why not. */
+export type AttendanceResult = { readonly usable: true } | { readonly usable: false; readonly reason: string };
 
 export type RecordedKey =
   | { readonly kind: 'shortcut'; readonly accelerator: string }
@@ -72,6 +76,11 @@ export interface SettingsDeps {
    * as a login page.
    */
   fetchJson(url: string): Promise<unknown>;
+  /**
+   * Posts a JSON document with the login of the Odoo pages and returns the
+   * JSON document of the answer, or undefined for an answer that holds none.
+   */
+  postJson(url: string, body: unknown): Promise<unknown>;
 }
 
 /**
@@ -320,6 +329,22 @@ export class Settings {
       return apps ? { ok: true, apps } : { ok: false, error: texts.signedOut };
     } catch (error) {
       return { ok: false, error: fill(texts.failed, { reason: reasonOf(error) }) };
+    }
+  }
+
+  /**
+   * Whether the saved instance lets OdooBar check the signed-in user in and
+   * out, with the login of the main window. The switch of the attendance
+   * button asks whether it is on or off, since the user needs the answer to
+   * turn it on. Never rejects.
+   */
+  async attendance(): Promise<AttendanceResult> {
+    const texts = this.messages.attendance;
+    try {
+      const status = await readAttendance(this.deps.getConfig().baseUrl, (url, body) => this.deps.postJson(url, body));
+      return status.kind === 'usable' ? { usable: true } : { usable: false, reason: texts.reasons[status.kind] };
+    } catch (error) {
+      return { usable: false, reason: fill(texts.failed, { reason: reasonOf(error) }) };
     }
   }
 

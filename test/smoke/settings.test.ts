@@ -50,7 +50,7 @@ import {
   refuseShortcut,
   shortcutStates,
 } from '../support/main-process';
-import { startOdooServer, type OdooServer } from '../support/odoo-server';
+import { startOdooServer, type OdooServer, type OdooServerOptions } from '../support/odoo-server';
 
 let electronBinary = '';
 
@@ -147,6 +147,7 @@ function rowIcon(page: Page, index: number): Promise<{ src: string; width: numbe
 interface Shown {
   readonly baseUrl: string;
   readonly launchAtLogin: boolean;
+  readonly attendance: boolean;
   readonly apps: AppConfig[];
 }
 
@@ -157,6 +158,7 @@ async function readSettings(page: Page): Promise<Shown> {
     `({
       baseUrl: document.getElementById('base-url').value,
       launchAtLogin: document.getElementById('launch-at-login').checked,
+      attendance: document.getElementById('attendance').checked,
       apps: [...document.querySelectorAll('#apps .app')].map((row) => ({
         id: row.dataset.id,
         name: row.querySelector('input.name').value,
@@ -218,9 +220,14 @@ interface Running {
 async function withSettings(
   config: (baseUrl: string) => object,
   run: (running: Running) => Promise<void>,
-  { lang = 'en', login = false, menus = undefined as unknown } = {},
+  {
+    lang = 'en',
+    login = false,
+    menus = undefined as unknown,
+    attendance = undefined as OdooServerOptions['attendance'],
+  } = {},
 ): Promise<void> {
-  const server = await startOdooServer(0, { login, menus });
+  const server = await startOdooServer(0, { login, menus, attendance });
   const userDataDir = makeUserDataDir();
   let app: ChildProcess | undefined;
   try {
@@ -251,6 +258,7 @@ test('the settings show the saved configuration', macOnly, async () => {
     assert.deepEqual(await readSettings(settings), {
       baseUrl: server.baseUrl,
       launchAtLogin: true,
+      attendance: true,
       apps: [home, timesheets, discuss],
     });
     assert.equal(await evaluate(settings, 'document.title'), 'OdooBar Settings');

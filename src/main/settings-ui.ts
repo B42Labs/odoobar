@@ -17,6 +17,7 @@ import { ICONS, iconNames } from './menu-bar-ui';
 import type { Messages } from './messages';
 import {
   placeOver,
+  type AttendanceResult,
   type OdooAppsResult,
   type SaveResult,
   type Settings,
@@ -72,6 +73,10 @@ export function createSettingsUi(events: () => Settings, messages: Messages, doc
   ipcMain.handle('settings:odoo-apps', (event): Promise<OdooAppsResult> => {
     if (!fromPage(event)) throw new Error('unexpected sender');
     return events().odooApps();
+  });
+  ipcMain.handle('settings:attendance', (event): Promise<AttendanceResult> => {
+    if (!fromPage(event)) throw new Error('unexpected sender');
+    return events().attendance();
   });
   ipcMain.on('settings:dirty', (event, dirty: unknown) => {
     if (fromPage(event)) events().setDirty(dirty === true);
