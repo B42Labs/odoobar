@@ -7,6 +7,7 @@ import {
   WebContentsView,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
+  type Session,
   type WebContents,
 } from 'electron';
 import { join } from 'node:path';
@@ -264,9 +265,19 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
  * does not answer within ten seconds fails.
  */
 export async function fetchOdooJson(url: string): Promise<unknown> {
-  const response = await session.fromPartition(PARTITION).fetch(url, {
-    headers: { accept: 'application/json' },
-    // Odoo before 19 lets a browser keep its menus for a year, which would outlast a new app and a change of the user.
+  return fetchSessionJson(session.fromPartition(PARTITION), url, 'application/json');
+}
+
+/**
+ * Fetches an address through a session, uncached, and returns the JSON
+ * document of the answer, or undefined for an answer that holds none. An
+ * address that does not answer within ten seconds fails.
+ */
+export async function fetchSessionJson(from: Session, url: string, accept: string): Promise<unknown> {
+  const response = await from.fetch(url, {
+    headers: { accept },
+    // Every caller needs the current answer: Odoo before 19 lets a browser keep its menus for a year, which would
+    // outlast a new app and a change of the user, and GitHub lets a client keep the latest release for a minute.
     cache: 'no-store',
     signal: AbortSignal.timeout(10_000),
   });

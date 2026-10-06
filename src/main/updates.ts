@@ -1,5 +1,6 @@
 import { REPOSITORY, REPOSITORY_URL } from './app-menu';
 import { isObject } from './config';
+import { isInstalledRun, type InstalledApp } from './installed-run';
 
 /** A newer release of OdooBar: its version without the `v`, and the page that offers its download. */
 export interface Update {
@@ -86,4 +87,16 @@ export class Updates {
       console.error('OdooBar could not check for updates:', error);
     }
   }
+}
+
+/**
+ * Checks for a newer release now and every CHECK_INTERVAL_MS, in the installed
+ * app only. Every other run never contacts GitHub.
+ */
+export function watchForUpdates(app: InstalledApp & { getVersion(): string }, deps: UpdatesDeps): void {
+  if (!isInstalledRun(app)) return;
+  const updates = new Updates(deps, app.getVersion());
+  // check() never rejects, it logs what goes wrong.
+  void updates.check();
+  setInterval(() => void updates.check(), CHECK_INTERVAL_MS);
 }
