@@ -211,3 +211,21 @@ test('setConfig registers again when nothing changed, so a refused shortcut gets
   assert.deepEqual(take(), ['unregisterAll', 'register Control+Alt+C', 'register Control+Alt+K']);
   assert.equal(shortcuts.states()[1]?.status, 'registered');
 });
+
+test('suspend releases every shortcut and keeps the states until setConfig takes them again', () => {
+  const { start, take, press, pressed, held } = fakeSystem();
+  const shortcuts = start(three);
+  const before = shortcuts.states();
+  take();
+
+  shortcuts.suspend();
+  assert.deepEqual(take(), ['unregisterAll']);
+  assert.equal(held.size, 0);
+  assert.throws(() => press('Control+Alt+C'), /no shortcut Control\+Alt\+C is held/);
+  assert.deepEqual(shortcuts.states(), before);
+
+  shortcuts.setConfig(three);
+  assert.deepEqual(take(), ['unregisterAll', 'register Control+Alt+C', 'register Control+Alt+K']);
+  press('Control+Alt+C');
+  assert.deepEqual(pressed, ['crm']);
+});
