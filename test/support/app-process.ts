@@ -1,11 +1,17 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 /** Repository root. This file runs from out/test/support/, three levels below it. */
 export const projectRoot = resolve(__dirname, '../../..');
+
+/** The number of Lucide icons, and so of the icons that the build renders. */
+export function iconCount(): number {
+  const files = readdirSync(join(projectRoot, 'node_modules/lucide-static/icons'));
+  return files.filter((file) => file.endsWith('.svg')).length;
+}
 
 /** The options of a test that launches OdooBar, which runs only on macOS. */
 export const macOnly = { skip: process.platform === 'darwin' ? false : 'requires macOS', timeout: 60_000 };
