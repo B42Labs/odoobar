@@ -40,6 +40,14 @@ export interface Messages {
     readonly moveDown: string;
     readonly remove: string;
     readonly add: string;
+    readonly blankApp: string;
+    readonly odooApps: {
+      readonly title: string;
+      readonly loading: string;
+      readonly none: string;
+      readonly signedOut: string;
+      readonly failed: string;
+    };
     readonly shortcutHint: string;
     readonly shortcutNotices: Readonly<Record<Exclude<ShortcutStatus, 'registered'>, string>>;
     readonly pickIcon: string;
@@ -112,6 +120,15 @@ const en: Messages = {
     moveDown: 'Move down',
     remove: 'Remove',
     add: 'Add app',
+    blankApp: 'Empty app',
+    odooApps: {
+      title: 'Apps of your Odoo account',
+      loading: 'Loading…',
+      none: 'Your Odoo account has no apps.',
+      signedOut:
+        'Odoo lists the apps of your account only after the login. Sign in to Odoo in the OdooBar window, then open this choice again.',
+      failed: 'OdooBar could not load the apps: {reason}',
+    },
     shortcutHint:
       'macOS does not tell OdooBar when another program uses a shortcut. If a shortcut does not respond, choose another one.',
     shortcutNotices: {
@@ -190,6 +207,15 @@ const de: Messages = {
     moveDown: 'Nach unten',
     remove: 'Entfernen',
     add: 'App hinzufügen',
+    blankApp: 'Leere App',
+    odooApps: {
+      title: 'Apps deines Odoo-Kontos',
+      loading: 'Lädt …',
+      none: 'Dein Odoo-Konto hat keine Apps.',
+      signedOut:
+        'Odoo nennt die Apps deines Kontos erst nach der Anmeldung. Melde dich im Fenster von OdooBar bei Odoo an und öffne diese Auswahl dann erneut.',
+      failed: 'OdooBar konnte die Apps nicht laden: {reason}',
+    },
     shortcutHint:
       'macOS teilt OdooBar nicht mit, ob ein anderes Programm ein Kürzel verwendet. Reagiert ein Kürzel nicht, wähle ein anderes.',
     shortcutNotices: {

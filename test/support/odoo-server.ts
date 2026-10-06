@@ -22,6 +22,13 @@ export interface OdooServerOptions {
    * goes straight to its `redirect`.
    */
   readonly login?: boolean;
+  /**
+   * The menu document of the instance. /web/webclient/load_menus answers
+   * with it as JSON, and lets the browser keep the answer for a year, as
+   * Odoo before 19 does. With `login`, it asks for the login first, like
+   * every page.
+   */
+  readonly menus?: unknown;
 }
 
 /**
@@ -78,6 +85,14 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
         response.writeHead(303, { location: `/web/login?redirect=${encodeURIComponent(path)}` }).end();
         return;
       }
+    }
+    if (options.menus !== undefined && url.pathname === '/web/webclient/load_menus') {
+      response.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=31536000',
+      });
+      response.end(JSON.stringify(options.menus));
+      return;
     }
     const redirect = query.get('redirect');
     if (redirect) {

@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import type { AppConfig, Config } from '../main/config';
-import type { SaveResult, SettingsInit, SettingsState, SignOutResult } from '../main/settings';
+import type { OdooApp } from '../main/odoo-apps';
+import type { OdooAppsResult, SaveResult, SettingsInit, SettingsState, SignOutResult } from '../main/settings';
 
 // The settings page carries no script of its own. This preload script draws
 // the configuration, keeps the edits in a draft until Save, and reports clicks
@@ -34,6 +35,10 @@ window.addEventListener('DOMContentLoaded', async () => {
   const save = byId<HTMLButtonElement>('save');
   const picker = byId<HTMLDialogElement>('icon-picker');
   const search = byId<HTMLInputElement>('icon-search');
+  const appPicker = byId<HTMLDialogElement>('app-picker');
+  const blankApp = byId<HTMLButtonElement>('blank-app');
+  const odooApps = byId('odoo-apps');
+  const odooAppsStatus = byId('odoo-apps-status');
   const known = new Set(init.icons);
   const { texts } = init.state;
 
@@ -44,6 +49,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   let recording: number | undefined;
   /** The index of the row whose icon the picker sets. */
   let picking: number | undefined;
+  /** Counts the times the app picker opened, so an answer for an earlier time is dropped. */
+  let appRequest = 0;
 
   document.title = texts.title;
   byId('general-title').textContent = texts.general;
@@ -65,6 +72,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   search.placeholder = texts.searchIcons;
   search.setAttribute('aria-label', texts.searchIcons);
   byId('no-icon').textContent = texts.noIcon;
+  byId('app-picker-title').textContent = texts.add;
+  blankApp.textContent = texts.blankApp;
+  byId('odoo-apps-title').textContent = texts.odooApps.title;
 
   const button = (className: string, text: string, label = text) => {
     const element = document.createElement('button');
@@ -275,12 +285,45 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateDirty();
   });
 
-  add.addEventListener('click', () => {
-    stopRecording();
-    draft.apps.push({ id: '', name: '', url: '', icon: '', shortcut: '', menuBar: true });
+  /** Adds a row with what the app picker offered, and closes the picker. */
+  const addApp = ({ name, url, icon }: OdooApp) => {
+    appPicker.close();
+    draft.apps.push({ id: '', name, url, icon, shortcut: '', menuBar: true });
     changeRows();
     inRow<HTMLInputElement>(draft.apps.length - 1, 'input.name')?.focus();
+  };
+
+  const odooChoice = (app: OdooApp) => {
+    const choice = document.createElement('button');
+    choice.type = 'button';
+    const name = document.createElement('span');
+    name.className = 'app-name';
+    name.textContent = app.name;
+    const url = document.createElement('span');
+    url.className = 'app-url';
+    url.textContent = app.url;
+    choice.append(iconImage(app.icon), name, url);
+    choice.addEventListener('click', () => addApp(app));
+    return choice;
+  };
+
+  // The picker asks Odoo each time it opens, so it knows of a login since the last time.
+  add.addEventListener('click', async () => {
+    stopRecording();
+    const request = ++appRequest;
+    odooApps.replaceChildren();
+    odooAppsStatus.textContent = texts.odooApps.loading;
+    appPicker.showModal();
+    const result: OdooAppsResult = await ipcRenderer.invoke('settings:odoo-apps');
+    if (request !== appRequest) return;
+    if (!result.ok) odooAppsStatus.textContent = result.error;
+    else if (result.apps.length === 0) odooAppsStatus.textContent = texts.odooApps.none;
+    else {
+      odooAppsStatus.textContent = '';
+      odooApps.replaceChildren(...result.apps.map(odooChoice));
+    }
   });
+  blankApp.addEventListener('click', () => addApp({ name: '', url: '', icon: '' }));
 
   ipcRenderer.on('settings:recorded', (_event, accelerator: unknown) => {
     if (recording === undefined) return;

@@ -28,8 +28,8 @@ const two: Config = { baseUrl: B, launchAtLogin: false, apps: [home, crm] };
  * Settings on a screen and a rest of OdooBar that record every call as text.
  * `take` returns the calls since the last `take`. `world` holds what the fakes
  * answer: the configuration, the shortcut states, what a save does (by
- * default it keeps the configuration), and the answers to both questions and
- * to a sign-out.
+ * default it keeps the configuration), the answers to both questions and to a
+ * sign-out, and the JSON document of an address (by default none).
  */
 function fakeSettings(config: Config = two) {
   let calls: string[] = [];
@@ -42,6 +42,7 @@ function fakeSettings(config: Config = two) {
     discard: (): Promise<boolean> => Promise.resolve(true),
     confirmSignOut: (): Promise<boolean> => Promise.resolve(true),
     signOut: (): Promise<void> => Promise.resolve(),
+    fetchJson: (_url: string): Promise<unknown> => Promise.resolve(undefined),
   };
   const ui: SettingsUi = {
     showWindow: () => calls.push('showWindow'),
@@ -68,6 +69,10 @@ function fakeSettings(config: Config = two) {
     signOut: () => {
       calls.push('signOut');
       return world.signOut();
+    },
+    fetchJson: (url) => {
+      calls.push(`fetchJson ${url}`);
+      return world.fetchJson(url);
     },
   };
   const take = () => {
@@ -482,4 +487,43 @@ test('signOut does not sign out when the question fails', async () => {
   world.confirmSignOut = () => Promise.reject(new Error('no dialog'));
   assert.deepEqual(await settings.signOut(), { ok: false, error: 'OdooBar could not sign out: no dialog' });
   assert.deepEqual(take(), ['confirmSignOut']);
+});
+
+/** The menu document of an Odoo with the app CRM. */
+const menus = {
+  root: { id: 'root', children: [7] },
+  '7': { id: 7, name: 'CRM', xmlid: 'crm.crm_menu_root', actionID: 12, actionPath: 'crm' },
+};
+const menusUrl = `${B}/web/webclient/load_menus`;
+
+test('odooApps asks the saved instance for the apps of the account', async () => {
+  const { settings, world, take } = fakeSettings();
+  world.fetchJson = () => Promise.resolve(menus);
+  assert.deepEqual(await settings.odooApps(), {
+    ok: true,
+    apps: [{ name: 'CRM', url: '/odoo/crm', icon: 'handshake' }],
+  });
+  assert.deepEqual(take(), [`fetchJson ${menusUrl}`]);
+});
+
+test('odooApps asks the address of an earlier Odoo when the first one has no menus', async () => {
+  const { settings, world, take } = fakeSettings();
+  world.fetchJson = (url) => Promise.resolve(url === `${menusUrl}/odoobar` ? menus : undefined);
+  assert.equal((await settings.odooApps()).ok, true);
+  assert.deepEqual(take(), [`fetchJson ${menusUrl}`, `fetchJson ${menusUrl}/odoobar`]);
+});
+
+test('odooApps asks for the login when no address has menus', async () => {
+  const { settings, take } = fakeSettings();
+  assert.deepEqual(await settings.odooApps(), { ok: false, error: en.settings.odooApps.signedOut });
+  assert.deepEqual(take(), [`fetchJson ${menusUrl}`, `fetchJson ${menusUrl}/odoobar`]);
+});
+
+test('odooApps reports an instance that does not answer', async () => {
+  const { settings, world } = fakeSettings();
+  world.fetchJson = () => Promise.reject(new Error('net::ERR_CONNECTION_REFUSED'));
+  assert.deepEqual(await settings.odooApps(), {
+    ok: false,
+    error: 'OdooBar could not load the apps: net::ERR_CONNECTION_REFUSED',
+  });
 });

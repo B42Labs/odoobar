@@ -78,7 +78,9 @@ Das Einstellungsfenster öffnet sich über das Zahnrad in der App-Leiste, mit `�
 
 Änderungen wirken erst mit „Speichern“: OdooBar prüft alle Werte, schreibt `config.json`, und App-Leiste, Menüleiste, Tastenkürzel und der Start bei der Anmeldung übernehmen die neue Konfiguration ohne Neustart. Verletzt ein Wert eine Regel, nennt das Fenster den Fehler neben „Speichern“, markiert das Feld und lässt die Datei unverändert. Wer das Fenster mit ungespeicherten Änderungen schließt, etwa mit `⌘W` oder dem roten Knopf, wird gefragt, ob sie verworfen werden sollen.
 
-Apps lassen sich hinzufügen, entfernen und mit den Pfeilen nach oben oder unten verschieben. Eine neue App bekommt beim Speichern eine `id` aus ihrem Namen. Ein Klick auf das Symbol einer App öffnet ein Raster aller Lucide-Symbole, das ein Suchfeld eingrenzt. „Kein Symbol“ lässt das Feld leer.
+Apps lassen sich hinzufügen, entfernen und mit den Pfeilen nach oben oder unten verschieben. „App hinzufügen“ öffnet eine Auswahl: „Leere App“ legt eine leere Zeile an, darunter stehen die Apps, die das angemeldete Odoo-Konto nutzen darf. Ein Klick auf eine davon legt eine Zeile mit Name, Adresse und Symbol an, die sich wie jede andere ändern lässt. Eine neue App bekommt beim Speichern eine `id` aus ihrem Namen.
+
+Die Auswahl fragt bei jedem Öffnen die Menüliste ab, aus der auch die Odoo-Startseite ihre Apps liest, und zwar bei der gespeicherten Odoo-Adresse und mit der Anmeldung aus dem Fenster von OdooBar. Ohne Anmeldung steht dort ein Hinweis statt der Apps. Die Namen kommen in der Sprache des Odoo-Kontos. Ein Symbol bekommen die Apps, die OdooBar kennt, etwa Discuss, CRM oder Kalender. Jede andere App bleibt ohne Symbol und zeigt das Ersatzsymbol, bis eines gewählt ist. Ein Klick auf das Symbol einer App öffnet ein Raster aller Lucide-Symbole, das ein Suchfeld eingrenzt. „Kein Symbol“ lässt das Feld leer.
 
 „Aufnehmen“ nimmt ein Tastenkürzel auf: danach die Tasten drücken, `Esc` beendet die Aufnahme ohne Änderung. Während der Aufnahme ruhen die globalen Kürzel von OdooBar. Ein aufgenommenes Kürzel braucht `⌘`, `⌃` oder `⌥`, außer bei einer Funktionstaste wie `F5`. Das Feld nimmt ein Kürzel auch als Text im Accelerator-Format an, etwa `Control+Alt+D`.
 
@@ -171,7 +173,9 @@ Welche Pfade gültig sind, hängt von der Odoo-Version ab:
 - Ab Odoo 18 haben viele Apps sprechende Pfade wie `/odoo/discuss` oder `/odoo/crm`.
 - Ältere Versionen verwenden Adressen der Form `/web#action=123&menu_id=45`.
 
-Am einfachsten ist es, die gewünschte Ansicht in Odoo zu öffnen und die Adresse aus der Adresszeile zu kopieren. So lassen sich auch gefilterte Listen oder einzelne Datensätze als eigene „App“ anlegen.
+Die Auswahl hinter „App hinzufügen“ trägt die passende Adresse selbst ein: ab Odoo 18 den sprechenden Pfad oder, wenn die App keinen hat, `/odoo/action-123`, davor die Form mit `/web#`.
+
+Für alles andere ist es am einfachsten, die gewünschte Ansicht in Odoo zu öffnen und die Adresse aus der Adresszeile zu kopieren. So lassen sich auch gefilterte Listen oder einzelne Datensätze als eigene „App“ anlegen.
 
 ## Technik
 

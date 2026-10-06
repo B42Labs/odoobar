@@ -114,6 +114,7 @@ function attribute(page: Page, selector: string, name: string): Promise<unknown>
 const textOf = (page: Page, selector: string) => property(page, selector, 'textContent');
 const noticeOf = (page: Page, index: number) => textOf(page, `${row(index)} p.notice`);
 const pickerOpen = async (page: Page) => (await property(page, '#icon-picker', 'open')) === true;
+const appPickerOpen = async (page: Page) => (await property(page, '#app-picker', 'open')) === true;
 const saveDisabled = async (page: Page) => (await property(page, '#save', 'disabled')) === true;
 
 /** The grid buttons of the picker that show. */
@@ -210,9 +211,9 @@ interface Running {
 async function withSettings(
   config: (baseUrl: string) => object,
   run: (running: Running) => Promise<void>,
-  { lang = 'en', login = false } = {},
+  { lang = 'en', login = false, menus = undefined as unknown } = {},
 ): Promise<void> {
-  const server = await startOdooServer(0, { login });
+  const server = await startOdooServer(0, { login, menus });
   const userDataDir = makeUserDataDir();
   let app: ChildProcess | undefined;
   try {
@@ -263,6 +264,8 @@ test('the settings are German for a German locale', macOnly, async () => {
       assert.equal(await evaluate(settings, 'document.title'), 'OdooBar-Einstellungen');
       assert.equal(await textOf(settings, '#save'), 'Speichern');
       assert.equal(await textOf(settings, `${row(0)} button.record`), 'Aufnehmen');
+      assert.equal(await textOf(settings, '#blank-app'), 'Leere App');
+      assert.equal(await textOf(settings, '#odoo-apps-title'), 'Apps deines Odoo-Kontos');
     },
     { lang: 'de' },
   );
@@ -284,7 +287,11 @@ test('saving writes the edited configuration, and the window, the menu bar, the 
       await click(settings, `${row(2)} button.remove`);
       await eventually(async () => isDeepStrictEqual(await ids(settings), ['timesheets', 'home']), 'the removal');
       await click(settings, '#add');
+      await eventually(() => appPickerOpen(settings), 'the app picker to open');
+      assert.equal(await evaluate(settings, 'document.activeElement.id'), 'blank-app');
+      await click(settings, '#blank-app');
       await eventually(async () => isDeepStrictEqual(await ids(settings), ['timesheets', 'home', '']), 'the new row');
+      assert.equal(await appPickerOpen(settings), false);
       assert.equal(await evaluate(settings, 'document.activeElement.dataset.path'), 'apps[2].name');
       await setField(settings, `${row(2)} input.name`, 'CRM');
       await setField(settings, `${row(2)} input.url`, '/odoo/crm');
@@ -697,5 +704,82 @@ test('signing out stops when the question is cancelled', macOnly, async () => {
       assert.equal(await textOf(settings, '#sign-out-error'), '');
     },
     { login: true },
+  );
+});
+
+/** The menu document of an Odoo with Discuss, CRM, and an app of its own without a path. */
+const menus = {
+  root: { id: 'root', children: [83, 235, 900] },
+  '83': { id: 83, name: 'Discuss', xmlid: 'mail.menu_root_discuss', actionID: 137, actionPath: 'discuss' },
+  '235': { id: 235, name: 'CRM', xmlid: 'crm.crm_menu_root', actionID: 394, actionPath: 'crm' },
+  '900': { id: 900, name: 'Fleet of ours', xmlid: 'ours.menu_root', actionID: 1500, actionPath: false },
+};
+
+/** What the app picker offers: the name, the path, and the icon file of every choice. */
+function odooChoices(page: Page): Promise<string[][]> {
+  return evaluate(
+    page,
+    `[...document.querySelectorAll('#odoo-apps button')].map((choice) => [
+      choice.querySelector('.app-name').textContent,
+      choice.querySelector('.app-url').textContent,
+      choice.querySelector('img').srcset.split(' ')[0].split('/').pop(),
+    ])`,
+  ) as Promise<string[][]>;
+}
+
+test('Add app offers the apps of the Odoo account once the login is there, and a choice fills a new row', macOnly, async () => {
+  await withSettings(
+    loginApps,
+    async ({ server, file, main, port, settings }) => {
+      // Without a login, Odoo answers with its login page.
+      await click(settings, '#add');
+      await eventually(() => appPickerOpen(settings), 'the app picker to open');
+      await eventually(
+        async () => (await textOf(settings, '#odoo-apps-status')) === en.settings.odooApps.signedOut,
+        'the hint at the login',
+      );
+      assert.deepEqual(await odooChoices(settings), []);
+      await pressKey(main, '/renderer/settings.html', 'Escape', []);
+      await eventually(async () => !(await appPickerOpen(settings)), 'the app picker to close on Escape');
+      assert.deepEqual(await ids(settings), ['crm', 'discuss']);
+      assert.equal(await saveDisabled(settings), true);
+
+      await logIn(await loadedPage(port, crmLogin));
+      await loadedPage(port, '/odoo/crm');
+      server.requests.length = 0;
+
+      await click(settings, '#add');
+      await eventually(async () => (await odooChoices(settings)).length === 3, 'the apps of the account');
+      assert.deepEqual(await odooChoices(settings), [
+        ['Discuss', '/odoo/discuss', 'message-circle.png'],
+        ['CRM', '/odoo/crm', 'handshake.png'],
+        ['Fleet of ours', '/odoo/action-1500', 'app-window.png'],
+      ]);
+      assert.equal(await textOf(settings, '#odoo-apps-status'), '');
+      // The first address answered, so OdooBar asked no other.
+      assert.deepEqual(server.requests, ['/web/webclient/load_menus']);
+
+      await click(settings, '#odoo-apps button:nth-child(3)');
+      await eventually(async () => !(await appPickerOpen(settings)), 'the app picker to close');
+      const added = { id: '', name: 'Fleet of ours', url: '/odoo/action-1500', icon: '', shortcut: '', menuBar: true };
+      assert.deepEqual((await readSettings(settings)).apps[2], added);
+      assert.equal(await evaluate(settings, 'document.activeElement.dataset.path'), 'apps[2].name');
+      assert.equal(await saveDisabled(settings), false);
+
+      await click(settings, '#add');
+      await eventually(async () => (await odooChoices(settings)).length === 3, 'the apps of the account again');
+      await click(settings, '#odoo-apps button:nth-child(1)');
+      await eventually(async () => (await ids(settings)).length === 4, 'the second new row');
+      // The picker asked Odoo again and took no answer from a cache.
+      assert.deepEqual(server.requests, ['/web/webclient/load_menus', '/web/webclient/load_menus']);
+
+      await click(settings, '#save');
+      await eventually(() => saveDisabled(settings), 'the save');
+      assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).apps.slice(2), [
+        { ...added, id: 'fleet-of-ours' },
+        { id: 'discuss-2', name: 'Discuss', url: '/odoo/discuss', icon: 'message-circle', shortcut: '', menuBar: true },
+      ]);
+    },
+    { login: true, menus },
   );
 });
