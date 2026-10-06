@@ -65,23 +65,42 @@ export async function desktopCalls(main: Page): Promise<[string, string][]> {
   return (await evaluate(main, 'globalThis.desktopCalls')) as [string, string][];
 }
 
+export type Modifier = 'shift' | 'control' | 'alt' | 'meta';
+
 /**
- * Presses ⌘ with a key in the page whose address ends in `urlSuffix`. The key
- * goes through 'before-input-event', which a key sent over the DevTools
- * protocol of the page does not.
+ * Presses a key with these modifiers in the page whose address ends in
+ * `urlSuffix`. The key goes through 'before-input-event', which a key sent
+ * over the DevTools protocol of the page does not. Electron reports its `code`
+ * by the position on the US layout, as for a real key: `D` arrives as KeyD.
+ * The inspector may run the evaluation inside a callback of macOS, such as
+ * one for a window that another covers. The timeout lets the key arrive from
+ * the event loop instead, as a real key does, since a window that closes
+ * inside such a callback can crash Electron.
  */
-export async function pressCommand(main: Page, urlSuffix: string, key: string): Promise<void> {
-  const event = (type: string) => JSON.stringify({ type, keyCode: key, modifiers: ['meta'] });
+export async function pressKey(
+  main: Page,
+  urlSuffix: string,
+  keyCode: string,
+  modifiers: readonly Modifier[],
+): Promise<void> {
+  const event = (type: string) => JSON.stringify({ type, keyCode, modifiers });
   await evaluate(
     main,
     `(() => {
       const contents = ${electron}.webContents.getAllWebContents().find((candidate) => candidate.getURL().endsWith(${JSON.stringify(urlSuffix)}));
       if (!contents) throw new Error('no page ends in ' + ${JSON.stringify(urlSuffix)});
-      contents.sendInputEvent(${event('keyDown')});
-      contents.sendInputEvent(${event('keyUp')});
+      setTimeout(() => {
+        contents.sendInputEvent(${event('keyDown')});
+        contents.sendInputEvent(${event('keyUp')});
+      }, 0);
       return true;
     })()`,
   );
+}
+
+/** Presses ⌘ with a key in the page whose address ends in `urlSuffix`, as pressKey does. */
+export function pressCommand(main: Page, urlSuffix: string, key: string): Promise<void> {
+  return pressKey(main, urlSuffix, key, ['meta']);
 }
 
 /** Closes the window the way its red button does. */
@@ -95,25 +114,35 @@ export async function resizeWindow(main: Page, width: number, height: number): P
 }
 
 /**
- * Closes the settings window the way its red button does. closeWindow,
- * resizeWindow, blurWindow, and isWindowFocused take the first window, which
- * may be either window once the settings are open.
+ * Calls `method` of the settings window from the event loop, as pressKey
+ * presses a key. closeWindow, resizeWindow, blurWindow, and isWindowFocused
+ * take the first window, which may be either window once the settings are open.
  */
-export async function closeSettings(main: Page): Promise<void> {
+async function callSettings(main: Page, method: 'close' | 'blur'): Promise<void> {
   await evaluate(
     main,
     `(() => {
       const window = ${electron}.BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().endsWith('/renderer/settings.html'));
       if (!window) throw new Error('no window shows the settings');
-      window.close();
+      setTimeout(() => window.${method}(), 0);
       return true;
     })()`,
   );
 }
 
+/** Closes the settings window the way its red button does. */
+export function closeSettings(main: Page): Promise<void> {
+  return callSettings(main, 'close');
+}
+
+/** Takes the keys from the settings window, as a click into another program does. */
+export function blurSettings(main: Page): Promise<void> {
+  return callSettings(main, 'blur');
+}
+
 /**
  * Keeps the WindowController that shows the window next, so a test can call
- * what no control reaches yet. Call it before the window first shows.
+ * it without a control. Call it before the window first shows.
  */
 export async function captureController(main: Page): Promise<void> {
   await evaluate(
@@ -130,15 +159,14 @@ export async function captureController(main: Page): Promise<void> {
   );
 }
 
-/** Signs out the way the settings window will. Resolves once the profile is cleared. */
+/** Signs out the way the settings window does after its question. Resolves once the profile is cleared. */
 export async function signOut(main: Page): Promise<void> {
   await evaluate(main, 'globalThis.controller.signOut().then(() => true)');
 }
 
 /**
  * Keeps the ConfigStore that saves next, so a test can save a configuration
- * the way the settings window will. Call it before the first-start prompt
- * saves.
+ * without the settings window. Call it before the first-start prompt saves.
  */
 export async function captureStore(main: Page): Promise<void> {
   await evaluate(
@@ -164,7 +192,7 @@ export async function saveConfig(main: Page, config: object): Promise<void> {
  * Keeps the callback of every global shortcut that Electron registers from
  * now on, and the GlobalShortcuts that takes a configuration next, so a test
  * can press a shortcut without the keyboard and read the states the settings
- * window will show. Call it before the first-start prompt saves.
+ * window shows. Call it before the first-start prompt saves.
  */
 export async function recordShortcuts(main: Page): Promise<void> {
   await evaluate(
@@ -315,6 +343,58 @@ export async function openIconMenu(
 /** Picks an entry of the menu that openIconMenu opened last. The timeout lets the evaluation answer before "Quit" ends the process. */
 export async function chooseMenuEntry(main: Page, index: number): Promise<void> {
   await evaluate(main, `setTimeout(() => globalThis.trayMenu.items[${index}].click(), 0); true`);
+}
+
+/**
+ * Replaces dialog.showMessageBox in the main process with one that answers
+ * every question at once with the button at `response`. `dialogs` returns the
+ * message of every question since the first call.
+ */
+export async function answerDialogs(main: Page, response: number): Promise<void> {
+  await evaluate(
+    main,
+    `globalThis.dialogs ??= [];
+    ${electron}.dialog.showMessageBox = async (...args) => {
+      // The options come last, after the window that the question belongs to.
+      globalThis.dialogs.push(args[args.length - 1]);
+      return { response: ${response}, checkboxChecked: false };
+    };
+    true`,
+  );
+}
+
+export async function dialogs(main: Page): Promise<string[]> {
+  return (await evaluate(main, '(globalThis.dialogs ?? []).map((options) => options.message)')) as string[];
+}
+
+/**
+ * Makes this run count as the installed app, whose launchAtLogin sets the
+ * login item of macOS, and keeps every login item setting from now on instead
+ * of passing it to macOS. `loginItemSettings` returns them.
+ */
+export async function recordLoginItem(main: Page): Promise<void> {
+  await evaluate(
+    main,
+    `(() => {
+      const { app } = ${electron};
+      let openAtLogin = false;
+      globalThis.loginItemSettings = [];
+      // The recorders come first, so the login item of the system stays untouched.
+      app.getLoginItemSettings = () => ({ openAtLogin, wasOpenedAtLogin: false });
+      app.setLoginItemSettings = (settings) => {
+        openAtLogin = settings.openAtLogin;
+        globalThis.loginItemSettings.push(settings);
+      };
+      Object.defineProperty(app, 'isPackaged', { value: true });
+      const hasSwitch = app.commandLine.hasSwitch;
+      app.commandLine.hasSwitch = (name) => name !== 'user-data-dir' && hasSwitch.call(app.commandLine, name);
+      return true;
+    })()`,
+  );
+}
+
+export async function loginItemSettings(main: Page): Promise<{ openAtLogin: boolean }[]> {
+  return (await evaluate(main, 'globalThis.loginItemSettings')) as { openAtLogin: boolean }[];
 }
 
 /** Takes the keys from the window, as a click into another program does. */
