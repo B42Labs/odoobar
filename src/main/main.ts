@@ -8,6 +8,8 @@ import { startedAtLogin, syncLoginItem } from './login-item';
 import { MenuBar } from './menu-bar';
 import { createMenuBarUi } from './menu-bar-ui';
 import { messagesFor, pickLocale } from './messages';
+import { Settings } from './settings';
+import { createSettingsUi } from './settings-ui';
 import { loadOrCreateConfig } from './startup';
 import { createStartupUi } from './startup-ui';
 import { WindowController } from './window';
@@ -27,12 +29,24 @@ async function start(): Promise<void> {
 
   const controller: WindowController = new WindowController(
     createWindowUi(() => controller),
-    createDesktop(store.filePath),
+    createDesktop(() => settings.open()),
     messages,
     result.config,
   );
   const menuBar = new MenuBar(createMenuBarUi(controller, messages), result.config);
   const shortcuts = new GlobalShortcuts(createGlobalShortcutsUi(), (id) => controller.toggleApp(id), result.config);
+  const settings: Settings = new Settings(
+    createSettingsUi(() => settings, messages),
+    {
+      getConfig: () => store.get(),
+      saveConfig: (config) => store.save(config),
+      shortcutStates: () => shortcuts.states(),
+      suspendShortcuts: () => shortcuts.suspend(),
+      resumeShortcuts: () => shortcuts.setConfig(store.get()),
+      signOut: () => controller.signOut(),
+    },
+    messages,
+  );
   store.onChange((config) => {
     controller.setConfig(config);
     menuBar.setConfig(config);

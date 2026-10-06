@@ -49,16 +49,14 @@ const mainModule = (file: string) =>
   `process.mainModule.require(process.mainModule.require('node:path').join(${electron}.app.getAppPath(), 'out/src/main/${file}'))`;
 
 /**
- * Replaces shell.openExternal and shell.showItemInFolder in the main process,
- * so a test opens neither the browser nor Finder. `desktopCalls` returns what
- * they were called with.
+ * Replaces shell.openExternal in the main process, so a test opens no
+ * browser. `desktopCalls` returns what it was called with.
  */
 export async function recordDesktopCalls(main: Page): Promise<void> {
   await evaluate(
     main,
     `globalThis.desktopCalls = [];
     ${electron}.shell.openExternal = async (url) => { globalThis.desktopCalls.push(['openExternal', url]); };
-    ${electron}.shell.showItemInFolder = (path) => { globalThis.desktopCalls.push(['showItemInFolder', path]); };
     true`,
   );
 }
@@ -94,6 +92,23 @@ export async function closeWindow(main: Page): Promise<void> {
 /** Gives the content area of the window, the app bar included, this size. */
 export async function resizeWindow(main: Page, width: number, height: number): Promise<void> {
   await evaluate(main, `${electron}.BrowserWindow.getAllWindows()[0].setContentSize(${width}, ${height}); true`);
+}
+
+/**
+ * Closes the settings window the way its red button does. closeWindow,
+ * resizeWindow, blurWindow, and isWindowFocused take the first window, which
+ * may be either window once the settings are open.
+ */
+export async function closeSettings(main: Page): Promise<void> {
+  await evaluate(
+    main,
+    `(() => {
+      const window = ${electron}.BrowserWindow.getAllWindows().find((candidate) => candidate.webContents.getURL().endsWith('/renderer/settings.html'));
+      if (!window) throw new Error('no window shows the settings');
+      window.close();
+      return true;
+    })()`,
+  );
 }
 
 /**

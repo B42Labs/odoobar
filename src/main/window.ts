@@ -33,10 +33,11 @@ export interface WindowUi {
   clearProfile(): Promise<void>;
 }
 
-/** What the window asks of the system. */
+/** What the window asks of the system and of the rest of OdooBar. */
 export interface Desktop {
   openExternal(url: string): void;
-  revealConfig(): void;
+  /** Opens the settings window. */
+  openSettings(): void;
 }
 
 interface App {
@@ -142,7 +143,7 @@ export class WindowController {
   }
 
   openSettings(): void {
-    this.desktop.revealConfig();
+    this.desktop.openSettings();
   }
 
   handleShortcut(shortcut: Shortcut): void {
@@ -203,8 +204,7 @@ export class WindowController {
    * closes first, so no page writes while the profile is cleared, and no view
    * opens until that is done. The active app then opens again, on the Odoo
    * login page. A call during a sign-out joins it. Rejects with the error of
-   * clearProfile. The settings window will call it. Until that window exists,
-   * only the smoke tests do.
+   * clearProfile. The settings window calls it.
    */
   signOut(): Promise<void> {
     if (this.signingOut) return this.signingOut;

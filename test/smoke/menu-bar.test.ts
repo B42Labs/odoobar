@@ -1,8 +1,6 @@
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
-import { realpathSync } from 'node:fs';
-import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import {
   isRunning,
@@ -23,6 +21,7 @@ import {
   waitForBar,
   waitForPage,
   waitForPrompt,
+  waitForSettings,
   type Page,
 } from '../support/devtools';
 import {
@@ -30,7 +29,6 @@ import {
   captureStore,
   chooseMenuEntry,
   clickIcon,
-  desktopCalls,
   iconImages,
   iconsIgnoreDoubleClicks,
   isWindowFocused,
@@ -146,7 +144,7 @@ test('a click on an icon shows its app, and a click while that app is in front h
 });
 
 test('the menu of an icon reloads the app of that icon, opens the settings, and quits', macOnly, async () => {
-  await withMenuBar(async ({ server, userDataDir, app, main, port, bar }) => {
+  await withMenuBar(async ({ server, app, main, port, bar }) => {
     // Timesheets has no page yet, so there is nothing to reload.
     assert.deepEqual(await openIconMenu(main, 'Timesheets'), [
       { label: 'Reload', enabled: false },
@@ -163,9 +161,7 @@ test('the menu of an icon reloads the app of that icon, opens the settings, and 
     assert.equal(await activeOf(bar), 'timesheets');
 
     await chooseMenuEntry(main, 1);
-    await eventually(async () => (await desktopCalls(main)).length === 1, 'the settings entry to reveal the file');
-    // The app reports the directory without the /var symlink of macOS.
-    assert.deepEqual(await desktopCalls(main), [['showItemInFolder', join(realpathSync(userDataDir), 'config.json')]]);
+    await waitForSettings(port);
 
     await chooseMenuEntry(main, 2);
     assert.equal(await waitForExit(app, 10_000), 0);

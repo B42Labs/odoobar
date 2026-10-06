@@ -1,7 +1,7 @@
 import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
-import { realpathSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
@@ -28,10 +28,12 @@ import {
   waitForBar,
   waitForPage,
   waitForPrompt,
+  waitForSettings,
   type Bar,
   type Page,
 } from '../support/devtools';
 import {
+  closeSettings,
   closeWindow,
   desktopCalls,
   launchInspected,
@@ -406,20 +408,24 @@ test('a link to a new tab loads in the view inside the instance and opens the br
   });
 });
 
-test('the settings entry and its shortcut reveal config.json', macOnly, async () => {
-  await withWindow(twoApps, async ({ userDataDir, main, port, bar }) => {
+test('the settings entry and its shortcut open the settings window', macOnly, async () => {
+  await withWindow(twoApps, async ({ main, port, bar }) => {
     await waitForPage(port, '/odoo/crm', 5_000);
-    // The app reports the directory without the /var symlink of macOS.
-    const file = join(realpathSync(userDataDir), 'config.json');
+    const settingsPages = async () =>
+      (await listPages(port)).filter((page) => page.url.endsWith('/renderer/settings.html')).length;
 
     await click(bar, '#settings');
-    await eventually(async () => (await desktopCalls(main)).length === 1, 'the settings entry to reveal the file');
+    await waitForSettings(port);
     await pressCommand(main, '/odoo/crm', ',');
-    await eventually(async () => (await desktopCalls(main)).length === 2, 'the shortcut to reveal the file');
-    assert.deepEqual(await desktopCalls(main), [
-      ['showItemInFolder', file],
-      ['showItemInFolder', file],
-    ]);
+    // Time for a second settings window, which must not come.
+    await sleep(500);
+    assert.equal(await settingsPages(), 1);
+    assert.equal((await listPages(port)).length, 3);
+
+    await closeSettings(main);
+    await eventually(async () => (await settingsPages()) === 0, 'the settings to close');
+    await pressCommand(main, '/odoo/crm', ',');
+    await waitForSettings(port);
     assert.equal(await evaluate(bar, `document.getElementById('settings').title`), 'Settings');
   });
 });
