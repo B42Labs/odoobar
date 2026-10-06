@@ -13,6 +13,7 @@ import {
 } from 'electron';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { TOGGLE_ROUTE } from './attendance';
 import type { Dock } from './dock';
 import { showInFront } from './dock-ui';
 import { shortcutFor } from './shortcuts';
@@ -66,6 +67,13 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
   // The default session holds only the app bar, which needs no permission.
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
+
+  // A page in a view used the check-in button of Odoo, and the attendance button follows it. A request of
+  // OdooBar itself goes through session.fetch, has no WebContents, and so starts no second read after a click.
+  odoo.webRequest.onCompleted({ urls: [`*://*/*${TOGGLE_ROUTE}*`] }, (details) => {
+    // attendanceSwitched never rejects, it logs what goes wrong.
+    if (details.webContentsId !== undefined) void events().attendanceSwitched(details.url);
+  });
 
   const fromBar = (event: IpcMainEvent | IpcMainInvokeEvent) =>
     window !== undefined && event.senderFrame === window.webContents.mainFrame && event.senderFrame.url === pageUrl;
@@ -128,6 +136,12 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     events().openUpdate();
     focusShown();
   });
+  ipcMain.on('app-bar:attendance', (event) => {
+    if (!fromBar(event)) return;
+    // pressAttendance never rejects, it shows what goes wrong in a sheet.
+    void events().pressAttendance();
+    focusShown();
+  });
 
   const layout = () => {
     if (!window) return;
@@ -154,8 +168,12 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
     created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     watchKeys(created.webContents);
     created.on('resize', layout);
-    // A window that comes back from hiding takes the focus only now, not inside showWindow.
-    created.on('focus', focusShown);
+    // A window that comes back from hiding takes the focus only now, not inside showWindow. A check-in
+    // elsewhere, as on a phone, shows on the attendance button once the user comes back.
+    created.on('focus', () => {
+      focusShown();
+      void events().refreshAttendance();
+    });
     created.on('close', (event) => {
       if (quitting) return;
       // The red button hides the window, so every view keeps its page.
@@ -213,7 +231,11 @@ export function createWindowUi(events: () => WindowController, dock: Dock): Wind
       };
       contents.on('did-frame-navigate', reportHistory);
       contents.on('did-navigate-in-page', reportHistory);
-      contents.on('did-finish-load', () => void events().pageLoaded());
+      // A page may come with another login, as the one after the login page does. Neither call rejects.
+      contents.on('did-finish-load', () => {
+        void events().pageLoaded();
+        void events().refreshAttendance();
+      });
       contents.on('did-fail-load', (_event, _code, description, failedUrl, isMainFrame) => {
         // A page that did not load takes a place in the history as well.
         reportHistory();

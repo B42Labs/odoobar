@@ -23,7 +23,11 @@
       #apps span .close { padding: 5px 7px 5px 4px; opacity: 0.6; }
       #apps span .close:hover { opacity: 1; }
       .icon svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-      #reload { margin-right: 4px; }
+      #apps { margin-left: 4px; }
+      /* The icons of Lucide have a view box of 24, so this is the stroke of .icon svg at 16 pixels. */
+      #attendance svg { stroke-width: 2.25; }
+      #attendance[data-checked-in="true"] .out, #attendance[data-checked-in="false"] .in { display: none; }
+      #attendance[data-checked-in="true"] { color: light-dark(#1a7f37, #3fb950); }
       #update { border: 1px solid color-mix(in srgb, CanvasText 40%, transparent); padding: 4px 10px; }
       #settings { font-size: 16px; padding: 3px 8px; }
       #notice { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 64px 24px; text-align: center; }
@@ -36,6 +40,11 @@
       <button id="back" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="M10 3 5 8l5 5" /></svg></button>
       <button id="forward" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="m6 3 5 5-5 5" /></svg></button>
       <button id="reload" class="icon" type="button" disabled><svg viewBox="0 0 16 16"><path d="M13.5 2.5v4h-4" /><path d="M13 9.5a5.25 5.25 0 1 1-1.25-5.2L13.5 6.5" /></svg></button>
+      <!-- The Lucide icons user and user-check. The page allows no image, so they are inline. -->
+      <button id="attendance" class="icon" type="button" data-checked-in="false" hidden>
+        <svg class="out" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+        <svg class="in" viewBox="0 0 24 24"><path d="m16 11 2 2 4-4" /><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
+      </button>
       <div id="apps"></div>
       <button id="update" type="button" hidden></button>
       <button id="settings" type="button">⚙</button>
