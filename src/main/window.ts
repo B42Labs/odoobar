@@ -1,5 +1,6 @@
+import { checkInClock, readAttendance, switchAttendance, type AttendanceStatus, type PostJson } from './attendance';
 import { resolveAppUrl, type Config } from './config';
-import { fill, type Messages } from './messages';
+import { fill, reasonOf, type Messages } from './messages';
 import { appKey, isInsideInstance, linkTarget } from './navigation';
 import { loadOdooApps, type OdooApp } from './odoo-apps';
 import type { Shortcut } from './shortcuts';
@@ -19,6 +20,8 @@ export interface BarState {
   readonly notice: { readonly text: string; readonly retry: boolean } | undefined;
   /** The button that leads to a newer release. undefined hides it. */
   readonly update: { readonly label: string; readonly hint: string } | undefined;
+  /** The button that checks in and out. undefined hides it. `busy` greys it out while a click is worked on. */
+  readonly attendance: { readonly checkedIn: boolean; readonly hint: string; readonly busy: boolean } | undefined;
   readonly texts: {
     readonly back: string;
     readonly forward: string;
@@ -61,6 +64,8 @@ export interface WindowUi {
   windowBounds(): Bounds | undefined;
   /** Deletes what the pages of all views stored: cookies, page storage, and caches. */
   clearProfile(): Promise<void>;
+  /** Tells the user in a sheet of the window that something failed. */
+  showFailure(failure: { readonly message: string; readonly detail: string }): void;
 }
 
 /** What the window asks of the system and of the rest of OdooBar. */
@@ -73,6 +78,13 @@ export interface Desktop {
    * document of the answer, or undefined for an answer that holds none.
    */
   fetchJson(url: string): Promise<unknown>;
+  /**
+   * Posts a JSON document with the login of the views and gives the JSON
+   * document of the answer, or undefined for an answer that holds none.
+   */
+  postJson(url: string, body: unknown): Promise<unknown>;
+  /** The current time in milliseconds since the epoch. */
+  now(): number;
 }
 
 interface App {
@@ -95,6 +107,10 @@ function appsOf(config: Config): App[] {
  * The bar lists the apps of the configuration and, behind them, the apps
  * that a link opened (followLink). Those are listed nowhere else, and each
  * stays until its close button, a sign-out, or the end of OdooBar.
+ *
+ * The attendance button shows only what the instance last answered about the
+ * signed-in user, and a click asks again before it checks in or out, so it
+ * never acts on a state that changed elsewhere.
  */
 export class WindowController {
   private baseUrl: string;
@@ -111,6 +127,14 @@ export class WindowController {
   private readonly failures = new Map<string, { readonly url: string; readonly reason: string }>();
   private signingOut: Promise<void> | undefined;
   private update: Update | undefined;
+  /** Whether the configuration turns the attendance button on. */
+  private attendanceOn: boolean;
+  /** What the instance last answered about attendance: undefined before an answer, after a sign-out, and for another one. */
+  private attendance: AttendanceStatus | undefined;
+  /** A click on the attendance button is worked on. */
+  private attendanceBusy = false;
+  /** Counts the requests about attendance, as `learning` counts those for the apps, so an old answer is dropped. */
+  private attendanceReads = 0;
 
   constructor(
     private readonly ui: WindowUi,
@@ -121,6 +145,7 @@ export class WindowController {
     this.baseUrl = config.baseUrl;
     this.apps = appsOf(config);
     this.active = this.apps[0]?.id;
+    this.attendanceOn = config.attendance;
   }
 
   get activeId(): string | undefined {
@@ -131,6 +156,8 @@ export class WindowController {
     this.visible = true;
     this.ui.showWindow();
     this.present();
+    // refreshAttendance never rejects, it logs what goes wrong.
+    void this.refreshAttendance();
   }
 
   hide(): void {
@@ -318,6 +345,103 @@ export class WindowController {
   }
 
   /**
+   * Asks the instance about the attendance of the signed-in user, so the
+   * button shows what Odoo says now. The window shown, its focus, a page load
+   * in a view, Odoo's own check-in button in a view, and a saved configuration
+   * call it. With the switch off it asks nothing, and during a click it leaves
+   * the asking to the click. Never rejects.
+   */
+  async refreshAttendance(): Promise<void> {
+    if (!this.attendanceOn || this.attendanceBusy) return;
+    const request = ++this.attendanceReads;
+    const baseUrl = this.baseUrl;
+    let status: AttendanceStatus;
+    try {
+      status = await readAttendance(baseUrl, (url, body) => this.desktop.postJson(url, body));
+    } catch (error) {
+      // No network or a refused connection (net::ERR_*), the timeout of the request, an answer that claims JSON
+      // and holds none, or an error of Odoo other than an expired login. The button keeps what it shows until the
+      // next read.
+      console.error(`OdooBar could not read the attendance state of ${baseUrl}:`, error);
+      return;
+    }
+    // A later read, a click, a sign-out, or another instance has made this answer an old one.
+    if (request !== this.attendanceReads) return;
+    this.attendance = status;
+    this.ui.renderBar(this.barState());
+  }
+
+  /**
+   * A page in a view completed a request to `url`, the route behind Odoo's own
+   * check-in button, and the attendance button follows it. The same route on
+   * another site, which a page or frame from there may ask as often as it
+   * likes, asks the instance nothing. Only the origin counts, because Odoo's
+   * button posts to the route at the root, also below a path prefix of the
+   * base URL. Never rejects.
+   */
+  async attendanceSwitched(url: string): Promise<void> {
+    if (URL.parse(url)?.origin === new URL(this.baseUrl).origin) await this.refreshAttendance();
+  }
+
+  /**
+   * A click on the attendance button. It asks the instance first and checks
+   * in or out only when Odoo's state is the one the button shows. Otherwise
+   * the click only shows the state of Odoo. The button is greyed out until
+   * the click is done, and a failure shows in a sheet. A sign-out or another
+   * configuration ends a click on its way without a word. Never rejects.
+   */
+  async pressAttendance(): Promise<void> {
+    const shown = this.attendance;
+    if (this.attendanceBusy || shown?.kind !== 'usable') return;
+    this.attendanceBusy = true;
+    const request = ++this.attendanceReads;
+    this.ui.renderBar(this.barState());
+    const baseUrl = this.baseUrl;
+    const postJson: PostJson = (url, body) => this.desktop.postJson(url, body);
+    const texts = this.messages.attendance;
+    // A sign-out or another configuration has reset the button through forgetAttendance, and a later click may
+    // own it by now, so this one stops without a word.
+    const dropped = () => request !== this.attendanceReads;
+    let failure: string | undefined;
+    let status: AttendanceStatus | undefined;
+    try {
+      status = await readAttendance(baseUrl, postJson);
+    } catch (error) {
+      failure = reasonOf(error);
+    }
+    if (dropped()) return;
+    if (status?.kind === 'usable' && status.checkedIn === shown.checkedIn) {
+      try {
+        const outcome = await switchAttendance(baseUrl, postJson);
+        if (outcome === 'signed-out') failure = texts.reasons['signed-out'];
+        else if (outcome === 'no-answer') failure = texts.noAnswer;
+      } catch (error) {
+        failure = reasonOf(error);
+      }
+      if (dropped()) return;
+      // Whatever the change did, the button shows what Odoo says afterwards.
+      try {
+        status = await readAttendance(baseUrl, postJson);
+      } catch (error) {
+        // As in refreshAttendance. The change may have worked while the button shows the state before it, and the
+        // next click asks first, so it only corrects the button.
+        console.error(`OdooBar could not read the attendance state of ${baseUrl} after a click:`, error);
+        status = undefined;
+      }
+      if (dropped()) return;
+      // Odoo made the change although its answer timed out or got lost on the way, so the click did what it was for.
+      if (status?.kind === 'usable' && status.checkedIn !== shown.checkedIn) failure = undefined;
+    } else if (status && status.kind !== 'usable') {
+      failure = texts.reasons[status.kind];
+    }
+    if (status) this.attendance = status;
+    this.attendanceBusy = false;
+    this.ui.renderBar(this.barState());
+    if (failure === undefined) return;
+    this.ui.showFailure({ message: shown.checkedIn ? texts.checkOutFailed : texts.checkInFailed, detail: failure });
+  }
+
+  /**
    * Whether a page or frame at `url` gets a permission it asks for, such as
    * notifications or the microphone. Only the origin of the Odoo instance
    * does. The path does not count, because Chromium keeps a permission per
@@ -358,6 +482,7 @@ export class WindowController {
     if (this.extras.some((app) => app.id === this.active)) this.active = this.apps[0]?.id;
     this.extras = [];
     this.forgetKnown();
+    this.forgetAttendance();
     // The async function turns an error that clearProfile throws into a rejection.
     const signingOut = (async () => this.ui.clearProfile())().finally(() => {
       this.signingOut = undefined;
@@ -374,11 +499,14 @@ export class WindowController {
    * instance changed or the configuration now lists the app itself, by its
    * start address or under the same id. That app of the configuration then
    * takes the place of an active one. Otherwise the active app stays active
-   * when it is still listed, and the first app is when it is not.
+   * when it is still listed, and the first app is when it is not. The
+   * attendance button goes with the switch off or another instance, and the
+   * instance is asked again when the switch is on and either changed.
    */
   setConfig(config: Config): void {
     const apps = appsOf(config);
     const sameInstance = config.baseUrl === this.baseUrl;
+    const wasOn = this.attendanceOn;
     const configured = (extra: App) =>
       apps.find((app) => app.id === extra.id || appKey(app.url) === appKey(extra.url));
     const extras = this.extras.filter((extra) => sameInstance && !configured(extra));
@@ -391,12 +519,16 @@ export class WindowController {
       this.dropView(id);
     }
     if (!sameInstance) this.forgetKnown();
+    this.attendanceOn = config.attendance;
+    if (!sameInstance || !this.attendanceOn) this.forgetAttendance();
     this.baseUrl = config.baseUrl;
     this.apps = apps;
     this.extras = extras;
     if (active && !extras.includes(active)) this.active = (sameInstance ? configured(active) : undefined)?.id;
     if (!this.listed.some((app) => app.id === this.active)) this.active = apps[0]?.id;
     this.present();
+    // refreshAttendance never rejects, it logs what goes wrong.
+    if (this.attendanceOn && (!sameInstance || !wasOn)) void this.refreshAttendance();
   }
 
   /**
@@ -440,8 +572,18 @@ export class WindowController {
     this.known = [];
   }
 
+  /**
+   * The attendance is that of another login or instance now, or the switch is
+   * off. A read and a click on their way are dropped as well.
+   */
+  private forgetAttendance(): void {
+    this.attendanceReads++;
+    this.attendance = undefined;
+    this.attendanceBusy = false;
+  }
+
   private barState(): BarState {
-    const { appBar } = this.messages;
+    const { appBar, attendance: attendanceTexts, locale } = this.messages;
     const app = this.listed.find((candidate) => candidate.id === this.active);
     const failure = app && this.failures.get(app.id);
     let notice: BarState['notice'];
@@ -449,6 +591,15 @@ export class WindowController {
     else if (failure) {
       const { url, reason } = failure;
       notice = { text: fill(appBar.loadFailed, { name: app.name, url, reason }), retry: true };
+    }
+    let attendance: BarState['attendance'];
+    if (this.attendance?.kind === 'usable') {
+      const { checkedIn, since } = this.attendance;
+      let hint = checkedIn ? attendanceTexts.checkOut : attendanceTexts.checkIn;
+      if (checkedIn && since !== undefined) {
+        hint = fill(attendanceTexts.checkOutSince, { since: checkInClock(since, this.desktop.now(), locale) });
+      }
+      attendance = { checkedIn, hint, busy: this.attendanceBusy };
     }
     const viewId = app && this.open.has(app.id) ? app.id : undefined;
     const version = this.update?.version;
@@ -468,6 +619,7 @@ export class WindowController {
         version === undefined
           ? undefined
           : { label: fill(appBar.update, { version }), hint: fill(appBar.updateHint, { version }) },
+      attendance,
       texts: {
         back: appBar.back,
         forward: appBar.forward,
