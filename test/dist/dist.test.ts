@@ -158,6 +158,11 @@ test('built app opens the settings window with every icon', { timeout: 60_000 },
     assert.equal(await evaluate(settings, `document.querySelectorAll('#icon-grid button').length`), iconCount());
     // A new app has no icon, so its row shows the fallback icon, which the page loads from app.asar.
     await evaluate(settings, `setTimeout(() => document.getElementById('add').click(), 0); true`);
+    await eventually(
+      async () => (await evaluate(settings, `document.getElementById('app-picker').open`)) === true,
+      'the choice of apps',
+    );
+    await evaluate(settings, `setTimeout(() => document.getElementById('blank-app').click(), 0); true`);
     const width = `(() => {
       const image = document.querySelector('#apps .app button.icon img');
       return image !== null && image.complete ? image.naturalWidth : 0;
