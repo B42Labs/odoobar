@@ -10,8 +10,14 @@ export interface OdooServer {
   readonly requests: string[];
   /** The path of every request for the menu document so far, in order. `requests` holds none of them. */
   readonly menuRequests: string[];
+  /** `<METHOD> <pathname>` of each request to the attendance routes so far, in order. `requests` holds none of them. */
+  readonly attendanceRequests: string[];
   /** Ends every login, as an expiry on the server does. */
   expireSessions(): void;
+  /** Checks the employee in or out, as a phone or a kiosk does. A check-in takes the current time. */
+  setAttendance(checkedIn: boolean): void;
+  /** Makes the toggle route refuse with this text, as Odoo does for an error that it raises. undefined ends that. */
+  failToggle(message: string | undefined): void;
   close(): Promise<void>;
 }
 
@@ -32,7 +38,24 @@ export interface OdooServerOptions {
    * without one, as does each request without this option.
    */
   readonly menus?: unknown;
+  /**
+   * The routes of Odoo 17 and later that read and toggle the attendance of the
+   * signed-in user, for an employee who is checked out unless `checkedIn` says
+   * otherwise. `employee: false` is a user without an employee, and `systray:
+   * false` a company that turned off the check-in in the top bar of Odoo. A
+   * request that is no POST of JSON gets a 400, and with `login`, one without
+   * the cookie of a login gets the JSON-RPC error of an expired session. The
+   * toggle route answers with the state after the change. Without this option,
+   * both routes answer 404, as an instance without the Attendances app does.
+   */
+  readonly attendance?: { readonly employee?: boolean; readonly systray?: boolean; readonly checkedIn?: boolean };
 }
+
+const ATTENDANCE_STATE = '/hr_attendance/attendance_user_data';
+const ATTENDANCE_TOGGLE = '/hr_attendance/systray_check_in_out';
+
+/** A time as Odoo writes it in JSON: UTC, as `YYYY-MM-DD HH:MM:SS`. */
+const odooTime = (date: Date) => date.toISOString().slice(0, 19).replace('T', ' ');
 
 /**
  * Stands in for an Odoo instance on 127.0.0.1. Every path but /favicon.ico
@@ -43,12 +66,22 @@ export interface OdooServerOptions {
  * instead of a page. /web/service-worker.js is an empty service worker that
  * may take the scope /odoo, as the one of Odoo does. The paths that start
  * with /web/webclient/load_menus are those of the menu document, which the
- * option `menus` describes. Port 0 picks a free port.
+ * option `menus` describes, and the option `attendance` describes those of
+ * the attendance. Port 0 picks a free port.
  */
 export function startOdooServer(port = 0, options: OdooServerOptions = {}): Promise<OdooServer> {
   const requests: string[] = [];
   const menuRequests: string[] = [];
+  const attendanceRequests: string[] = [];
   const sessions = new Set<string>();
+  let checkedIn = false;
+  let lastCheckIn: string | false = false;
+  let refusal: string | undefined;
+  const setAttendance = (next: boolean) => {
+    checkedIn = next;
+    if (next) lastCheckIn = odooTime(new Date());
+  };
+  setAttendance(options.attendance?.checkedIn === true);
   const server = createServer((request, response) => {
     const path = request.url ?? '/';
     if (path === '/favicon.ico') {
@@ -76,6 +109,51 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
         'cache-control': 'public, max-age=31536000',
       });
       response.end(JSON.stringify(options.menus));
+      return;
+    }
+    // OdooBar asks for the attendance on every focus and page load, so these requests stay off the list too.
+    if (url.pathname === ATTENDANCE_STATE || url.pathname === ATTENDANCE_TOGGLE) {
+      attendanceRequests.push(`${request.method} ${url.pathname}`);
+      request.resume();
+      const { attendance } = options;
+      if (!attendance) {
+        response.writeHead(404, { 'content-type': 'text/html; charset=utf-8' });
+        response.end('<!doctype html><title>404</title>');
+        return;
+      }
+      if (request.method !== 'POST' || !request.headers['content-type']?.startsWith('application/json')) {
+        response.writeHead(400).end();
+        return;
+      }
+      const answer = (body: object) => {
+        response.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+        response.end(JSON.stringify({ jsonrpc: '2.0', id: null, ...body }));
+      };
+      const error = (code: number, message: string, name: string, text: string) =>
+        answer({ error: { code, message, data: { name, message: text } } });
+      if (options.login && !loggedIn) {
+        error(100, 'Odoo Session Expired', 'odoo.http.SessionExpiredException', 'Session expired');
+        return;
+      }
+      if (url.pathname === ATTENDANCE_TOGGLE) {
+        if (refusal !== undefined) {
+          error(200, 'Odoo Server Error', 'odoo.exceptions.UserError', refusal);
+          return;
+        }
+        if (attendance.employee !== false) setAttendance(!checkedIn);
+      }
+      answer({
+        result:
+          attendance.employee === false
+            ? {}
+            : {
+                id: 7,
+                hours_today: 0,
+                last_check_in: lastCheckIn,
+                attendance_state: checkedIn ? 'checked_in' : 'checked_out',
+                display_systray: attendance.systray !== false,
+              },
+      });
       return;
     }
     requests.push(request.method === 'GET' ? path : `${request.method} ${path}`);
@@ -130,7 +208,12 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
         port: actual,
         requests,
         menuRequests,
+        attendanceRequests,
         expireSessions: () => sessions.clear(),
+        setAttendance,
+        failToggle: (message) => {
+          refusal = message;
+        },
         close: () =>
           new Promise((done) => {
             server.closeAllConnections();
