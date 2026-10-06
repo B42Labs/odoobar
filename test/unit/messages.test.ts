@@ -29,6 +29,8 @@ test('German and English define the same messages', () => {
 
   assert.equal(messagesFor('de').seedApps.timesheets, 'Zeiterfassung');
   assert.equal(messagesFor('en').seedApps.timesheets, 'Timesheets');
+  assert.equal(messagesFor('de').locale, 'de');
+  assert.equal(messagesFor('en').locale, 'en');
 });
 
 test('fill replaces named placeholders and keeps unknown ones', () => {
