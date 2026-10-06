@@ -33,6 +33,7 @@ import {
   type Page,
 } from '../support/devtools';
 import {
+  captureController,
   closeSettings,
   closeWindow,
   desktopCalls,
@@ -41,6 +42,7 @@ import {
   pressCommand,
   recordDesktopCalls,
   resizeWindow,
+  showUpdate,
 } from '../support/main-process';
 import { startOdooServer, type OdooServer } from '../support/odoo-server';
 
@@ -547,11 +549,15 @@ test('the app bar does not navigate to another page or open a window', macOnly, 
 test('another page in the window cannot use the app bar channels', macOnly, async () => {
   await withWindow(twoApps, async ({ server, userDataDir, main, port, bar }) => {
     await waitForPage(port, '/odoo/crm', 5_000);
+    // An update on offer, whose button would open the release page.
+    await captureController(main);
+    await eventually(async () => (await evaluate(main, 'globalThis.controller !== undefined')) === true, 'the controller');
+    await showUpdate(main, { version: '9.9.9', url: 'https://github.com/B42Labs/odoobar/releases/tag/v9.9.9' });
     // Counts the messages that reach the main process, whether refused or not.
     await evaluate(
       main,
       `globalThis.barMessages = 0;
-      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload'])
+      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload', 'app-bar:update'])
         process.mainModule.require('electron').ipcMain.on(channel, () => globalThis.barMessages++);
       true`,
     );
@@ -568,7 +574,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     );
     // A page that the main process loads gets past will-navigate.
     await navigate(bar, pathToFileURL(other).href);
-    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 5, 'every message to arrive');
+    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 6, 'every message to arrive');
     // Time for a reload of CRM, which must not come.
     await sleep(500);
     assert.deepEqual(await desktopCalls(main), []);

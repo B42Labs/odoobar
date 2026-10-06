@@ -140,6 +140,8 @@ export interface Bar {
   /** The text below the bar, or undefined while a view covers it. */
   readonly notice: string | undefined;
   readonly retry: boolean;
+  /** The text of the update button, or undefined while it is hidden. */
+  readonly update: string | undefined;
   readonly visible: boolean;
 }
 
@@ -160,6 +162,7 @@ export async function readBar(page: Page): Promise<Bar> {
       },
       notice: document.getElementById('notice').hidden ? undefined : document.getElementById('notice-text').textContent,
       retry: !document.getElementById('notice').hidden && !document.getElementById('retry').hidden,
+      update: document.getElementById('update').hidden ? undefined : document.getElementById('update').textContent,
       visible: document.visibilityState === 'visible',
     })`,
   )) as Bar;
