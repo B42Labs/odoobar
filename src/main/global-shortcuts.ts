@@ -73,12 +73,18 @@ export class GlobalShortcuts {
     this.setConfig(config);
   }
 
-  /**
-   * The apps with a shortcut, in the order of the configuration. The settings
-   * window will read its notices from here; until it exists, only the tests do.
-   */
+  /** The apps with a shortcut, in the order of the configuration. The settings window reads its notices from here. */
   states(): readonly ShortcutState[] {
     return this.current;
+  }
+
+  /**
+   * Releases every shortcut while the settings record one, since macOS would
+   * hand a held shortcut to its app. states() stays as it is, and the next
+   * setConfig takes the shortcuts again.
+   */
+  suspend(): void {
+    this.ui.unregisterAll();
   }
 
   setConfig(config: Config): void {
