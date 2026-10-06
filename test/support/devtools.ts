@@ -142,6 +142,8 @@ export interface Bar {
   readonly retry: boolean;
   /** The text of the update button, or undefined while it is hidden. */
   readonly update: string | undefined;
+  /** The attendance button with its tooltip, or undefined while it is hidden. A click in the works greys it out. */
+  readonly attendance: { readonly checkedIn: boolean; readonly hint: string; readonly enabled: boolean } | undefined;
   readonly visible: boolean;
 }
 
@@ -163,6 +165,13 @@ export async function readBar(page: Page): Promise<Bar> {
       notice: document.getElementById('notice').hidden ? undefined : document.getElementById('notice-text').textContent,
       retry: !document.getElementById('notice').hidden && !document.getElementById('retry').hidden,
       update: document.getElementById('update').hidden ? undefined : document.getElementById('update').textContent,
+      attendance: document.getElementById('attendance').hidden
+        ? undefined
+        : {
+            checkedIn: document.getElementById('attendance').dataset.checkedIn === 'true',
+            hint: document.getElementById('attendance').title,
+            enabled: !document.getElementById('attendance').disabled,
+          },
       visible: document.visibilityState === 'visible',
     })`,
   )) as Bar;

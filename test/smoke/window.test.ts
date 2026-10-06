@@ -658,7 +658,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     await evaluate(
       main,
       `globalThis.barMessages = 0;
-      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload', 'app-bar:update'])
+      for (const channel of ['app-bar:settings', 'app-bar:go', 'app-bar:reload', 'app-bar:update', 'app-bar:attendance'])
         process.mainModule.require('electron').ipcMain.on(channel, () => globalThis.barMessages++);
       true`,
     );
@@ -666,7 +666,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     const other = join(userDataDir, 'other.html');
     writeFileSync(
       other,
-      `<button id="back"></button><button id="forward"></button><button id="reload"></button>
+      `<button id="back"></button><button id="forward"></button><button id="reload"></button><button id="attendance"></button>
 <div id="apps"></div><button id="update"></button><button id="settings"></button>
 <div id="notice"><p id="notice-text"></p><button id="retry"></button></div>
 <script>addEventListener('load', () => {
@@ -675,7 +675,7 @@ test('another page in the window cannot use the app bar channels', macOnly, asyn
     );
     // A page that the main process loads gets past will-navigate.
     await navigate(bar, pathToFileURL(other).href);
-    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 6, 'every message to arrive');
+    await eventually(async () => (await evaluate(main, 'globalThis.barMessages')) === 7, 'every message to arrive');
     // Time for a reload of CRM, which must not come.
     await sleep(500);
     assert.deepEqual(await desktopCalls(main), []);

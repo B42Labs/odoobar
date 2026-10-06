@@ -11,6 +11,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const back = byId<HTMLButtonElement>('back');
   const forward = byId<HTMLButtonElement>('forward');
   const reload = byId<HTMLButtonElement>('reload');
+  const attendance = byId<HTMLButtonElement>('attendance');
   const apps = byId('apps');
   const settings = byId<HTMLButtonElement>('settings');
   const update = byId<HTMLButtonElement>('update');
@@ -30,6 +31,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     back.disabled = !state.nav.back;
     forward.disabled = !state.nav.forward;
     reload.disabled = !state.nav.reload;
+    // The name tells checked in from checked out, so the button carries no aria-pressed, which would add "pressed".
+    attendance.hidden = state.attendance === undefined;
+    attendance.disabled = state.attendance?.busy === true;
+    attendance.dataset.checkedIn = String(state.attendance?.checkedIn === true);
+    name(attendance, state.attendance?.hint ?? '');
     apps.replaceChildren(
       ...state.apps.map((app) => {
         const button = document.createElement('button');
@@ -67,6 +73,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   back.addEventListener('click', () => ipcRenderer.send('app-bar:go', 'back'));
   forward.addEventListener('click', () => ipcRenderer.send('app-bar:go', 'forward'));
   reload.addEventListener('click', () => ipcRenderer.send('app-bar:reload'));
+  attendance.addEventListener('click', () => ipcRenderer.send('app-bar:attendance'));
   retry.addEventListener('click', () => ipcRenderer.send('app-bar:reload'));
   update.addEventListener('click', () => ipcRenderer.send('app-bar:update'));
   ipcRenderer.on('app-bar:state', (_event, state: BarState) => render(state));
