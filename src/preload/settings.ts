@@ -1,7 +1,14 @@
 import { ipcRenderer } from 'electron';
 import type { AppConfig, Config } from '../main/config';
 import type { OdooApp } from '../main/odoo-apps';
-import type { OdooAppsResult, SaveResult, SettingsInit, SettingsState, SignOutResult } from '../main/settings';
+import type {
+  AttendanceResult,
+  OdooAppsResult,
+  SaveResult,
+  SettingsInit,
+  SettingsState,
+  SignOutResult,
+} from '../main/settings';
 
 // The settings page carries no script of its own. This preload script draws
 // the configuration, keeps the edits in a draft until Save, and reports clicks
@@ -15,6 +22,7 @@ type DraftApp = { -readonly [Key in keyof AppConfig]: AppConfig[Key] };
 interface Draft {
   baseUrl: string;
   launchAtLogin: boolean;
+  attendance: boolean;
   apps: DraftApp[];
 }
 
@@ -27,6 +35,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
   const baseUrl = byId<HTMLInputElement>('base-url');
   const launchAtLogin = byId<HTMLInputElement>('launch-at-login');
+  const attendance = byId<HTMLInputElement>('attendance');
+  const attendanceHint = byId('attendance-hint');
   const apps = byId('apps');
   const add = byId<HTMLButtonElement>('add');
   const signOut = byId<HTMLButtonElement>('sign-out');
@@ -51,11 +61,14 @@ window.addEventListener('DOMContentLoaded', async () => {
   let picking: number | undefined;
   /** Counts the times the app picker opened, so an answer for an earlier time is dropped. */
   let appRequest = 0;
+  /** Counts the questions about attendance, so the answer to an earlier one is dropped. */
+  let attendanceRequest = 0;
 
   document.title = texts.title;
   byId('general-title').textContent = texts.general;
   byId('base-url-label').textContent = texts.baseUrl;
   byId('launch-at-login-label').textContent = texts.launchAtLogin;
+  byId('attendance-label').textContent = texts.attendance.label;
   byId('apps-title').textContent = texts.apps;
   byId('column-icon').textContent = texts.icon;
   byId('column-name').textContent = texts.name;
@@ -257,6 +270,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   const renderGeneral = () => {
     baseUrl.value = draft.baseUrl;
     launchAtLogin.checked = draft.launchAtLogin;
+    attendance.checked = draft.attendance;
   };
 
   /** Draws the rows anew, which only a change of their number or order needs, so typing keeps the focus. */
@@ -284,6 +298,27 @@ window.addEventListener('DOMContentLoaded', async () => {
     draft.launchAtLogin = launchAtLogin.checked;
     updateDirty();
   });
+  attendance.addEventListener('change', () => {
+    draft.attendance = attendance.checked;
+    updateDirty();
+  });
+
+  /**
+   * Asks the saved instance whether the attendance button can work, and keeps
+   * its switch greyed out with the reason below it while it cannot. A switch
+   * that is greyed out keeps the saved value, which a save writes back.
+   */
+  const checkAttendance = async () => {
+    const request = ++attendanceRequest;
+    attendance.disabled = true;
+    attendanceHint.textContent = texts.attendance.checking;
+    const result: AttendanceResult = await ipcRenderer.invoke('settings:attendance');
+    if (request !== attendanceRequest) return;
+    attendance.disabled = !result.usable;
+    attendanceHint.textContent = result.usable ? '' : result.reason;
+  };
+  // A login in the main window counts once the user comes back. Settings.attendance never rejects.
+  window.addEventListener('focus', () => void checkAttendance());
 
   /** Adds a row with what the app picker offered, and closes the picker. */
   const addApp = ({ name, url, icon }: OdooApp) => {
@@ -348,6 +383,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       renderGeneral();
       renderRows();
       updateDirty();
+      // The saved address may be another instance.
+      void checkAttendance();
       return;
     }
     error.textContent = result.error;
@@ -370,5 +407,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   renderGeneral();
   renderRows();
+  void checkAttendance();
   document.body.hidden = false;
 });

@@ -30,6 +30,8 @@
       #add { margin-top: 8px; }
       #shortcut-hint, #sign-out-hint { color: GrayText; }
       #shortcut-hint { margin-top: 10px; }
+      #attendance-hint { color: GrayText; margin: 4px 0 0 22px; }
+      #attendance-hint:empty { display: none; }
       .session-row { display: flex; align-items: center; gap: 12px; }
       #sign-out-error { margin-top: 6px; }
       footer { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 12px 0 16px; background: Canvas; border-top: 1px solid color-mix(in srgb, CanvasText 15%, transparent); }
@@ -63,6 +65,11 @@
         <input id="launch-at-login" type="checkbox" data-path="launchAtLogin" />
         <span id="launch-at-login-label"></span>
       </label>
+      <label class="check">
+        <input id="attendance" type="checkbox" data-path="attendance" disabled />
+        <span id="attendance-label"></span>
+      </label>
+      <p id="attendance-hint" role="status"></p>
     </section>
     <section>
       <h2 id="apps-title"></h2>
