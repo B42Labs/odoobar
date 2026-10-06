@@ -1,6 +1,6 @@
 import { ConfigError, normalizeBaseUrl, type Config } from './config';
 import type { ConfigStore } from './config-store';
-import { fill, type Messages } from './messages';
+import { fill, reasonOf, type Messages } from './messages';
 
 export type SubmitResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
@@ -18,10 +18,6 @@ export interface StartupUi {
   /** Shows the invalid-file dialog. Resolves true when the user chose "Reset". */
   confirmReset(detail: string): Promise<boolean>;
   showFatal(message: string, detail: string): Promise<void>;
-}
-
-function reasonOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**

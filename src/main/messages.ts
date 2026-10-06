@@ -229,3 +229,8 @@ export function messagesFor(locale: Locale): Messages {
 export function fill(template: string, values: Readonly<Record<string, string>>): string {
   return template.replace(/\{(\w+)\}/g, (placeholder, name: string) => values[name] ?? placeholder);
 }
+
+/** The text of an error for the {reason} of a message. */
+export function reasonOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
