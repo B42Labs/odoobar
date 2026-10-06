@@ -757,7 +757,9 @@ test('Add app offers the apps of the Odoo account once the login is there, and a
 
       await logIn(await loadedPage(port, crmLogin));
       await loadedPage(port, '/odoo/crm');
-      server.requests.length = 0;
+      // The window asks for the apps of the account after the page of CRM, and only a login gets them from the first address.
+      await eventually(() => server.menuRequests.at(-1) === '/web/webclient/load_menus', 'the window to ask for the apps');
+      server.menuRequests.length = 0;
 
       await click(settings, '#add');
       await eventually(async () => (await odooChoices(settings)).length === 3, 'the apps of the account');
@@ -768,7 +770,7 @@ test('Add app offers the apps of the Odoo account once the login is there, and a
       ]);
       assert.equal(await textOf(settings, '#odoo-apps-status'), '');
       // The first address answered, so OdooBar asked no other.
-      assert.deepEqual(server.requests, ['/web/webclient/load_menus']);
+      assert.deepEqual(server.menuRequests, ['/web/webclient/load_menus']);
 
       await click(settings, '#odoo-apps button:nth-child(3)');
       await eventually(async () => !(await appPickerOpen(settings)), 'the app picker to close');
@@ -782,7 +784,7 @@ test('Add app offers the apps of the Odoo account once the login is there, and a
       await click(settings, '#odoo-apps button:nth-child(1)');
       await eventually(async () => (await ids(settings)).length === 4, 'the second new row');
       // The picker asked Odoo again and took no answer from a cache.
-      assert.deepEqual(server.requests, ['/web/webclient/load_menus', '/web/webclient/load_menus']);
+      assert.deepEqual(server.menuRequests, ['/web/webclient/load_menus', '/web/webclient/load_menus']);
 
       await click(settings, '#save');
       await eventually(() => saveDisabled(settings), 'the save');

@@ -38,7 +38,18 @@ window.addEventListener('DOMContentLoaded', async () => {
         button.textContent = app.name;
         if (app.id === state.activeId) button.setAttribute('aria-current', 'true');
         button.addEventListener('click', () => ipcRenderer.send('app-bar:press', app.id));
-        return button;
+        if (app.close === undefined) return button;
+        // An app that a link opened has a button that closes it, in one frame with its name.
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'close';
+        close.dataset.closeId = app.id;
+        close.textContent = '×';
+        name(close, app.close);
+        close.addEventListener('click', () => ipcRenderer.send('app-bar:close', app.id));
+        const both = document.createElement('span');
+        both.append(button, close);
+        return both;
       }),
     );
     update.hidden = state.update === undefined;

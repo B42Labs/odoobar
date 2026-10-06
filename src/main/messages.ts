@@ -22,6 +22,8 @@ export interface Messages {
     readonly reload: string;
     readonly settings: string;
     readonly retry: string;
+    /** The name of the button that takes an app off the bar. `{name}` is the app. */
+    readonly close: string;
     readonly noApps: string;
     readonly loadFailed: string;
     readonly update: string;
@@ -134,6 +136,7 @@ const en: Messages = {
     reload: 'Reload',
     settings: 'Settings',
     retry: 'Try again',
+    close: 'Close {name}',
     noApps: 'No apps are configured.',
     loadFailed: '{name} could not be loaded.\n\n{url}\n{reason}',
     update: 'Update to {version}',
@@ -253,6 +256,7 @@ const de: Messages = {
     reload: 'Neu laden',
     settings: 'Einstellungen',
     retry: 'Erneut versuchen',
+    close: '{name} schließen',
     noApps: 'Es sind keine Apps eingerichtet.',
     loadFailed: '{name} konnte nicht geladen werden.\n\n{url}\n{reason}',
     update: 'Update auf {version}',

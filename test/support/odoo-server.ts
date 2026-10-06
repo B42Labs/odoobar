@@ -8,6 +8,8 @@ export interface OdooServer {
   readonly port: number;
   /** The path of every page request so far, in order. A request that is no GET has its method in front. */
   readonly requests: string[];
+  /** The path of every request for the menu document so far, in order. `requests` holds none of them. */
+  readonly menuRequests: string[];
   /** Ends every login, as an expiry on the server does. */
   expireSessions(): void;
   close(): Promise<void>;
@@ -25,8 +27,9 @@ export interface OdooServerOptions {
   /**
    * The menu document of the instance. /web/webclient/load_menus answers
    * with it as JSON, and lets the browser keep the answer for a year, as
-   * Odoo before 19 does. With `login`, it asks for the login first, like
-   * every page.
+   * Odoo before 19 does. With `login`, only a request with the cookie of a
+   * login gets it. Every other request for the menu document gets a 404
+   * without one, as does each request without this option.
    */
   readonly menus?: unknown;
 }
@@ -38,10 +41,13 @@ export interface OdooServerOptions {
  * address, and the page sets `window.framed` once the frame has loaded or
  * failed. A `redirect` query parameter gets a redirect to that address
  * instead of a page. /web/service-worker.js is an empty service worker that
- * may take the scope /odoo, as the one of Odoo does. Port 0 picks a free port.
+ * may take the scope /odoo, as the one of Odoo does. The paths that start
+ * with /web/webclient/load_menus are those of the menu document, which the
+ * option `menus` describes. Port 0 picks a free port.
  */
 export function startOdooServer(port = 0, options: OdooServerOptions = {}): Promise<OdooServer> {
   const requests: string[] = [];
+  const menuRequests: string[] = [];
   const sessions = new Set<string>();
   const server = createServer((request, response) => {
     const path = request.url ?? '/';
@@ -53,12 +59,27 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
       response.writeHead(200, { 'content-type': 'text/javascript', 'service-worker-allowed': '/odoo' }).end();
       return;
     }
-    requests.push(request.method === 'GET' ? path : `${request.method} ${path}`);
     const url = new URL(path, 'http://127.0.0.1');
     const query = url.searchParams;
+    const cookie = /(?:^|; )session_id=([^;]+)/.exec(request.headers.cookie ?? '')?.[1];
+    const loggedIn = cookie !== undefined && sessions.has(cookie);
+    // OdooBar asks for the menu document after every page, so these requests stay off the list of the pages.
+    if (url.pathname.startsWith('/web/webclient/load_menus')) {
+      menuRequests.push(path);
+      const answers = options.menus !== undefined && url.pathname === '/web/webclient/load_menus';
+      if (!answers || (options.login && !loggedIn)) {
+        response.writeHead(404).end();
+        return;
+      }
+      response.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=31536000',
+      });
+      response.end(JSON.stringify(options.menus));
+      return;
+    }
+    requests.push(request.method === 'GET' ? path : `${request.method} ${path}`);
     if (options.login) {
-      const cookie = /(?:^|; )session_id=([^;]+)/.exec(request.headers.cookie ?? '')?.[1];
-      const loggedIn = cookie !== undefined && sessions.has(cookie);
       if (url.pathname === '/web/login') {
         if (request.method === 'POST') {
           const id = randomUUID();
@@ -86,14 +107,6 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
         return;
       }
     }
-    if (options.menus !== undefined && url.pathname === '/web/webclient/load_menus') {
-      response.writeHead(200, {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'public, max-age=31536000',
-      });
-      response.end(JSON.stringify(options.menus));
-      return;
-    }
     const redirect = query.get('redirect');
     if (redirect) {
       response.writeHead(302, { location: redirect }).end();
@@ -116,6 +129,7 @@ export function startOdooServer(port = 0, options: OdooServerOptions = {}): Prom
         baseUrl: `http://127.0.0.1:${actual}`,
         port: actual,
         requests,
+        menuRequests,
         expireSessions: () => sessions.clear(),
         close: () =>
           new Promise((done) => {
